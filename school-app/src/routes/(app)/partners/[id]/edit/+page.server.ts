@@ -5,6 +5,7 @@ import { partnerWithIdSchema, type PartnerInput } from '$lib/validation/partner'
 import { error, fail, redirect } from '@sveltejs/kit';
 import { and, eq, sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
+import { logAudit } from '$lib/server/audit';
 
 export const load: PageServerLoad = async (event) => {
 	await requireNationalAdmin(event);
@@ -75,6 +76,23 @@ export const actions: Actions = {
 
 		const { id, name, code, contactEmail, contactPhone, isActive } = parsed.data;
 
+		const existing = await db
+			.select({
+				id: partners.id,
+				name: partners.name,
+				code: partners.code,
+				contactEmail: partners.contactEmail,
+				contactPhone: partners.contactPhone,
+				isActive: partners.isActive
+			})
+			.from(partners)
+			.where(eq(partners.id, id))
+			.limit(1);
+
+		if (existing.length === 0) {
+			return fail(404, { errors: { id: ['Partner not found'] }, values: parsed.data });
+		}
+
 		const exists = await db
 			.select({ id: partners.id })
 			.from(partners)
@@ -105,6 +123,16 @@ export const actions: Actions = {
 			throw error(404, 'Partner not found');
 		}
 
-		throw redirect(303, '/partners');
-	}
+		await logAudit({
+			event,
+			userId: event.locals.user?.id,
+			action: 'partner_updated',
+			entityType: 'partner',
+			entityId: id,
+			oldData: existing[0],
+			newData: { id, name, code, contactEmail, contactPhone, isActive }
+		});
+
+	throw redirect(303, '/partners');
+}
 };

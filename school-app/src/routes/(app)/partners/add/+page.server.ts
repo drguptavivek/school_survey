@@ -5,6 +5,7 @@ import { partnerInputSchema, type PartnerInput } from '$lib/validation/partner';
 import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
+import { logAudit } from '$lib/server/audit';
 
 const defaults: PartnerInput = {
 	name: '',
@@ -63,14 +64,26 @@ export const actions: Actions = {
 			});
 		}
 
-		await db.insert(partners).values({
+		const inserted = await db.insert(partners).values({
 			name,
 			code,
 			contactEmail,
 			contactPhone,
 			isActive,
 			createdBy: event.locals.user?.id ?? null
-		});
+		}).returning({ id: partners.id });
+
+		if (inserted[0]?.id) {
+			await logAudit({
+				event,
+				userId: event.locals.user?.id,
+				action: 'partner_created',
+				entityType: 'partner',
+				entityId: inserted[0].id,
+				oldData: null,
+				newData: { id: inserted[0].id, name, code, contactEmail, contactPhone, isActive }
+			});
+		}
 
 		throw redirect(303, '/partners');
 	}

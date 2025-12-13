@@ -21,3 +21,4 @@
 5) **Field rendering**: wrap inputs with `Field` (TanStack), bind value, mark touched on input, and call `validateFieldValue(fieldName, value)` to update `$fieldErrors`.
 6) **Inline errors**: derive from `$fieldErrors[field]`; hydrate server errors into both TanStack meta and the store on mount.
 7) **Submit**: prevent default and call `formApi.handleSubmit()`; rely on server actions for persistence and final validation/uniqueness.
+- **Auditing**: use `logAudit` (`src/lib/server/audit.ts`) to record old/new snapshots on create/update. Pass `oldData` and `newData` from actions; partner add/edit already implement this pattern.
