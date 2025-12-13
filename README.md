@@ -41,7 +41,18 @@ This starts:
 ### 4. Run Database Migrations
 ```bash
 npm run db:migrate
+
+npm run db:seed
 ```
+
+
+Test Credentials:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+National Admin:   admin@example.com / password123
+Partner Manager:  manager@example.com / password123
+Team Member:      team@example.com / password123
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 
 ### 5. Start Development Server
 ```bash
