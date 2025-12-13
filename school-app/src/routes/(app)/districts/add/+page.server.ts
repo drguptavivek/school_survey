@@ -3,7 +3,7 @@ import { districts, partners } from '$lib/server/db/schema';
 import { requireNationalAdmin } from '$lib/server/guards';
 import { districtCreateSchema, type DistrictCreateInput } from '$lib/validation/district';
 import { fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { eq, and, ilike } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { logAudit } from '$lib/server/audit';
 import { INDIAN_STATES_UTS } from '$lib/data/indian-states';
@@ -73,6 +73,39 @@ export const actions: Actions = {
 		}
 
 		const { name, state, partnerId } = parsed.data;
+
+		// Check for duplicate district (case-insensitive) in the same state
+		const normalizedName = name.trim().toUpperCase();
+		const existingDistrict = await db
+			.select({ id: districts.id })
+			.from(districts)
+			.where(and(eq(districts.state, state), ilike(districts.name, normalizedName)))
+			.limit(1);
+
+		if (existingDistrict.length > 0) {
+			// Re-fetch partners for dropdown
+			const partnersList = await db
+				.select({
+					id: partners.id,
+					name: partners.name,
+					code: partners.code
+				})
+				.from(partners)
+				.where(eq(partners.isActive, true))
+				.orderBy(partners.name);
+
+			return fail(400, {
+				values: {
+					name: String(payload.name ?? ''),
+					state: String(payload.state ?? ''),
+					partnerId: String(payload.partnerId ?? '')
+				},
+				errors: {
+					name: [`A district with this name already exists in ${state}`]
+				},
+				partners: partnersList
+			});
+		}
 
 		const inserted = await db.insert(districts).values({
 			name,

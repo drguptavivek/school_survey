@@ -11,6 +11,8 @@
 	export let data: PageData;
 	export let form: ActionData;
 
+	let isLoadingDistricts = false;
+
 	type DistrictErrors = Partial<
 		Record<'name' | 'state' | 'partnerId', string[]>
 	>;
@@ -35,13 +37,16 @@
 	const Field = formApi.Field;
 
 	let formEl: HTMLFormElement | null = null;
+	let existingDistricts: string[] = [];
+	let loadingDistricts = false;
+	
 	const fieldSchemas: Record<keyof DistrictCreateInput, z.ZodTypeAny> = {
 		name: districtCreateSchema.shape.name,
 		state: districtCreateSchema.shape.state,
 		partnerId: districtCreateSchema.shape.partnerId
 	};
 
-const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
+	const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 	const result = fieldSchemas[key].safeParse(value);
 	const errs = result.success ? [] : result.error.issues.map((err) => err.message);
 
@@ -53,6 +58,29 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 		...curr,
 		[key]: errs
 	}));
+};
+
+const fetchDistrictsByState = async (state: string) => {
+	if (!state) {
+		existingDistricts = [];
+		return;
+	}
+
+	loadingDistricts = true;
+	try {
+		const response = await fetch(`/districts/add/districts?state=${encodeURIComponent(state)}`);
+		if (response.ok) {
+			const data = await response.json();
+			existingDistricts = data.districts.map((d: any) => d.name);
+		} else {
+			existingDistricts = [];
+		}
+	} catch (error) {
+		console.error('Error fetching districts:', error);
+		existingDistricts = [];
+	} finally {
+		loadingDistricts = false;
+	}
 };
 
 	onMount(() => {
@@ -103,9 +131,11 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 							required
 							value={field.state.value ?? ''}
 							on:input={(event) => {
-								field.handleChange((event.target as HTMLSelectElement).value);
+								const stateValue = (event.target as HTMLSelectElement).value;
+								field.handleChange(stateValue);
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
-								validateFieldValue('state', (event.target as HTMLSelectElement).value);
+								validateFieldValue('state', stateValue);
+								fetchDistrictsByState(stateValue);
 							}}
 							on:blur={field.handleBlur}
 							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
@@ -197,10 +227,18 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 			</button>
 		</div>
 	</form>
-	<div id="existingDistcricts">
-		<p class="text-sm text-slate-600">
-			List of distrcits selceted already in the selected state.
+	<div id="existingDistcricts" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+		<p class="text-sm font-semibold text-slate-700 mb-3">
+			Existing Districts in Selected State
 		</p>
-
+		{#if loadingDistricts}
+			<p class="text-sm text-slate-500">Loading districts...</p>
+		{:else if existingDistricts.length > 0}
+			<button class="rounded-lg outline outline-amber-800  px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm  ">
+				{existingDistricts.join(', ')}
+			</button>
+		{:else}
+			<p class="text-sm text-slate-500 italic">No districts found for the selected state.</p>
+		{/if}
 	</div>
 </div>
