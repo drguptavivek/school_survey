@@ -5,3 +5,4 @@
 - Logout should be a `+server.ts` endpoint, not a `+page.server.ts` load, to avoid “cookies.set after response generated” errors; clear cookies before redirect.
 - Files under `src/routes` cannot have names starting with `+` (aside from route files); place tests in `src/tests/...` to avoid the “Files prefixed with + are reserved” warning.
 - If `.svelte-kit/types` goes missing or stale (e.g., ENOENT for `proxy+page.server.ts`), remove `.svelte-kit/types` and run `npm run prepare` to regenerate; avoid keeping tests inside route folders to prevent type churn.
+- Vite/Vitest do not auto-regenerate `.svelte-kit/types` if you deleted it; run `npm run prepare` (svelte-kit sync) before tests/dev, or add a `pretest` script to do it automatically.

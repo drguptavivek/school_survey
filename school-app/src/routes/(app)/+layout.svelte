@@ -10,6 +10,7 @@
 		{ href: '/dashboard', label: 'Dashboard', icon: '📊' },
 		{ href: '/partners', label: 'Partners', icon: '🤝', roles: ['national_admin'] },
 		{ href: '/districts', label: 'Districts', icon: '📍', roles: ['national_admin'] },
+		{ href: '/partner-districts', label: 'Partner-Districts', icon: '🗺️', roles: ['national_admin'] },
 		{ href: '/schools', label: 'Schools', icon: '🏫', roles: ['national_admin', 'partner_manager'] },
 		{ href: '/surveys', label: 'Surveys', icon: '📋', roles: ['team_member', 'partner_manager', 'data_manager'] },
 		{ href: '/users', label: 'Users', icon: '👥', roles: ['national_admin', 'partner_manager'] },
