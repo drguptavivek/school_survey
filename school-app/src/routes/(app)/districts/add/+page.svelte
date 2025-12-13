@@ -93,33 +93,6 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 		on:submit|preventDefault={() => formApi.handleSubmit()}
 	>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			<Field name="name">
-				{#snippet children(field)}
-					<label class="block text-sm text-slate-700" for="name">
-						District Name
-						<input
-							id="name"
-							name="name"
-							required
-							maxlength="255"
-							value={field.state.value ?? ''}
-							on:input={(event) => {
-								field.handleChange((event.target as HTMLInputElement).value);
-								field.setMeta((prev) => ({ ...prev, isTouched: true }));
-								validateFieldValue('name', (event.target as HTMLInputElement).value);
-							}}
-							on:blur={field.handleBlur}
-							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-							aria-invalid={field.state.meta.errors?.length ? 'true' : 'false'}
-							aria-describedby={field.state.meta.errors?.length ? 'name-error' : undefined}
-						/>
-						{#if $fieldErrors.name?.length}
-							<p class="text-xs text-red-600 mt-1" id="name-error">{$fieldErrors.name[0]}</p>
-						{/if}
-					</label>
-				{/snippet}
-			</Field>
-
 			<Field name="state">
 				{#snippet children(field)}
 					<label class="block text-sm text-slate-700" for="state">
@@ -150,8 +123,33 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 					</label>
 				{/snippet}
 			</Field>
+			<Field name="name">
+				{#snippet children(field)}
+					<label class="block text-sm text-slate-700" for="name">
+						District Name
+						<input
+							id="name"
+							name="name"
+							required
+							maxlength="255"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								field.handleChange((event.target as HTMLInputElement).value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('name', (event.target as HTMLInputElement).value);
+							}}
+							on:blur={field.handleBlur}
+							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+							aria-invalid={field.state.meta.errors?.length ? 'true' : 'false'}
+							aria-describedby={field.state.meta.errors?.length ? 'name-error' : undefined}
+						/>
+						{#if $fieldErrors.name?.length}
+							<p class="text-xs text-red-600 mt-1" id="name-error">{$fieldErrors.name[0]}</p>
+						{/if}
+					</label>
+				{/snippet}
+			</Field>
 		</div>
-
 		<Field name="partnerId">
 			{#snippet children(field)}
 				<label class="block text-sm text-slate-700" for="partnerId">
@@ -182,7 +180,6 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 				</label>
 			{/snippet}
 		</Field>
-
 		<div class="flex items-center gap-3 pt-2">
 			<a
 				href="/districts"
@@ -200,4 +197,10 @@ const validateFieldValue = (key: keyof DistrictCreateInput, value: unknown) => {
 			</button>
 		</div>
 	</form>
+	<div id="existingDistcricts">
+		<p class="text-sm text-slate-600">
+			List of distrcits selceted already in the selected state.
+		</p>
+
+	</div>
 </div>
