@@ -14,7 +14,9 @@
 		{ href: '/schools', label: 'Schools', icon: '🏫', roles: ['national_admin', 'partner_manager'] },
 		{ href: '/surveys', label: 'Surveys', icon: '📋', roles: ['team_member', 'partner_manager', 'data_manager'] },
 		{ href: '/users', label: 'Users', icon: '👥', roles: ['national_admin', 'partner_manager'] },
-		{ href: '/reports', label: 'Reports', icon: '📈', roles: ['national_admin', 'data_manager', 'partner_manager'] }
+		{ href: '/reports', label: 'Reports', icon: '📈', roles: ['national_admin', 'data_manager', 'partner_manager'] },
+		{ href: '/audit-log', label: 'Audit Log', icon: '📝', roles: ['national_admin'] }
+		
 	];
 
 	// Filter navigation items based on user role
