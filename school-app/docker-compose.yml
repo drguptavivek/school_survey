@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: school_survey_db
+    environment:
+      POSTGRES_DB: school_survey
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_user
+      - db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/db_user)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - survey_network
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: school_survey_app
+    ports:
+      - "3000:3000"
+      - "5173:5173"  # Vite dev server
+    environment:
+      NODE_ENV: development
+      DATABASE_URL_FILE: /run/secrets/database_url
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      HOST: 0.0.0.0
+      PORT: 3000
+    secrets:
+      - database_url
+      - session_secret
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Bind mount for hot reload during development
+      - ./src:/app/src
+      - ./static:/app/static
+      - ./package.json:/app/package.json
+      - ./svelte.config.js:/app/svelte.config.js
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      # Named volume for node_modules (don't override)
+      - node_modules:/app/node_modules
+      # Upload directory
+      - ./uploads:/app/uploads
+    networks:
+      - survey_network
+    command: npm run dev
+    restart: unless-stopped
+
+secrets:
+  db_user:
+    file: ./secrets/db_user.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  database_url:
+    file: ./secrets/database_url.txt
+  session_secret:
+    file: ./secrets/session_secret.txt
+
+volumes:
+  postgres_data:
+    driver: local
+  node_modules:
+    driver: local
+
+networks:
+  survey_network:
+    driver: bridge

@@ -23,14 +23,15 @@ A large-scale multi-tenant survey application for educational data collection ac
 ## Technology Stack
 - **Frontend**: Svelte 5 with runes ($state, $derived)
 - **Framework**: SvelteKit (SSR, form actions, file-based routing)
-- **Backend**: Node.js
-- **Database**: PostgreSQL in Docker
+- **Backend**: Node.js 20
+- **Database**: PostgreSQL 18 in Docker
 - **ORM**: Drizzle ORM
 - **Validation**: Zod (server + client)
 - **Authentication**: Session-based (httpOnly cookies)
 - **Reporting**: ExcelJS for Excel, json2csv for CSV exports
 - **Charts**: Chart.js for visualizations
-- **Deployment**: Docker Compose (local deployment)
+- **Deployment**: Docker Compose with Docker Secrets (local deployment)
+- **Development**: Bind-mounted source files for hot reload
 
 ## Database Schema
 
@@ -41,10 +42,12 @@ Each row represents one child's complete eye health assessment with the followin
 
 **Section A: Basic Details**
 - `id` (UUID, primary key)
+- `survey_unique_id` (varchar, unique) - Format: `{district_code}-{school_code}-{class}-{section}-{roll_no}`
 - `survey_date` (date, required)
 - `district_id` (UUID, FK to districts)
 - `area_type` (enum: 'rural', 'urban')
 - `school_id` (UUID, FK to schools)
+- `school_type` (enum: 'government', 'private', 'aided', 'other')
 - `class` (integer 3-12)
 - `section` (varchar)
 - `roll_no` (varchar)
@@ -77,17 +80,18 @@ Each row represents one child's complete eye health assessment with the followin
 - `cause_left_eye` (enum: same as above)
 - `cause_left_eye_other` (varchar, nullable)
 
-**Section E: Barriers for Uncorrected Refractive Error**
-- `barrier` (enum: 'lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford', 'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany', 'glasses_broken')
+**Section E: Barriers for Uncorrected Refractive Error** (up to 2 selections)
+- `barrier_1` (enum: 'lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford', 'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany', 'glasses_broken', nullable)
+- `barrier_2` (enum: same as above, nullable)
 
-**Section F: Follow-up Details**
-- `time_since_last_checkup` (enum: 'less_than_1_year', '1_to_2_years', 'more_than_2_years')
-- `place_of_last_refraction` (enum: 'government', 'private_ngo')
-- `cost_of_glasses` (enum: 'free', 'paid')
-- `uses_spectacle_regularly` (boolean)
-- `spectacle_alignment_centering` (boolean)
-- `spectacle_scratches` (enum: 'none', 'superficial_few', 'deep_multiple')
-- `spectacle_frame_integrity` (enum: 'not_broken', 'broken_taped_glued')
+**Section F: Follow-up Details** (conditional: only shown if uses_distance_glasses = true)
+- `time_since_last_checkup` (enum: 'less_than_1_year', '1_to_2_years', 'more_than_2_years', nullable)
+- `place_of_last_refraction` (enum: 'government', 'private_ngo', nullable)
+- `cost_of_glasses` (enum: 'free', 'paid', nullable)
+- `uses_spectacle_regularly` (boolean, nullable)
+- `spectacle_alignment_centering` (boolean, nullable)
+- `spectacle_scratches` (enum: 'none', 'superficial_few', 'deep_multiple', nullable)
+- `spectacle_frame_integrity` (enum: 'not_broken', 'broken_taped_glued', nullable)
 
 **Section G: Advice**
 - `spectacles_prescribed` (boolean)
@@ -97,6 +101,8 @@ Each row represents one child's complete eye health assessment with the followin
 - `partner_id` (UUID, FK to partners)
 - `submitted_by` (UUID, FK to users)
 - `submitted_at` (timestamp)
+- `team_edit_deadline` (timestamp) - 24 hours after submission (team members can edit until this time)
+- `partner_edit_deadline` (timestamp) - 15 days after submission (partner managers can edit until this time)
 - `last_edited_by` (UUID, FK to users, nullable)
 - `last_edited_at` (timestamp, nullable)
 - `created_at` (timestamp)
@@ -105,17 +111,47 @@ Each row represents one child's complete eye health assessment with the followin
 #### Other Core Tables
 - **users**: User accounts with role and partner association
 - **partners**: Partner organizations
-- **districts**: Geographic districts (60 districts)
-- **partner_districts**: Many-to-many mapping of partners to districts
+- **districts**: Geographic districts (60 districts) - each district assigned to exactly one partner
 - **schools**: School listings uploaded by partners
+  - `is_active` (boolean) - false means deactivated for further data entry
+  - `has_survey_data` (boolean) - true if any surveys submitted (prevents deletion)
 - **sessions**: Session management for authentication
 - **audit_logs**: Track all sensitive operations (especially edits to survey data)
+
+**Note**: District-Partner relationship is 1:1 (one partner per district). The `partner_id` field is directly on the districts table.
 
 ### Data Isolation Strategy
 - PostgreSQL Row-Level Security (RLS) policies
 - Session variables (`app.current_user_id`, `app.current_partner_id`)
 - Automatic filtering based on user role and partner
 - Audit logging for all survey data edits
+- Team members can view all surveys submitted by their partner's team
+
+### Business Rules
+1. **Unique Survey ID**: `{district_code}-{school_code}-{class}-{section}-{roll_no}` (prevents duplicates)
+2. **Edit Time Windows**:
+   - Team members: 24 hours after submission
+   - Partner managers: 15 days after submission
+   - National level: No time limit
+3. **School Deactivation**: Schools with survey data cannot be deleted, only deactivated
+4. **Conditional Fields**: Section F (spectacle details) only shown when `uses_distance_glasses = true`
+5. **Barrier Selection**: Up to 2 barriers can be selected per survey
+6. **Offline Data Retention**: 4 days on device before auto-purge
+
+### Operational Metrics & Reports
+1. **Coverage Metrics**:
+   - Number of schools covered (per district, per partner, national)
+   - Number of students covered
+   - Male/Female percentage
+   - Age distribution
+2. **Partner Reports**:
+   - School-wise list of metrics
+   - District totals within partner
+   - Survey completion progress
+3. **National Reports**:
+   - Partner-wise comparison
+   - District-wise coverage
+   - Overall progress dashboard
 
 ## Project Structure
 
@@ -280,6 +316,7 @@ export const surveySchema = z.object({
   district_id: z.string().uuid(),
   area_type: z.enum(['rural', 'urban']),
   school_id: z.string().uuid(),
+  school_type: z.enum(['government', 'private', 'aided', 'other']),
   class: z.number().int().min(3).max(12),
   section: z.string().min(1),
   roll_no: z.string().min(1),
@@ -318,8 +355,13 @@ export const surveySchema = z.object({
   ]).nullable(),
   cause_left_eye_other: z.string().nullable(),
 
-  // Section E: Barriers
-  barrier: z.enum([
+  // Section E: Barriers (up to 2 selections)
+  barrier_1: z.enum([
+    'lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford',
+    'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany',
+    'glasses_broken'
+  ]).nullable(),
+  barrier_2: z.enum([
     'lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford',
     'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany',
     'glasses_broken'
@@ -359,13 +401,16 @@ export type SurveyFormData = z.infer<typeof surveySchema>;
 
 ## Critical Files to Create First
 
-1. **docker-compose.yml** - Docker setup for PostgreSQL + app
-2. **src/lib/server/db/schema.ts** - Complete database schema with all survey columns
-3. **src/lib/validation/survey.ts** - Zod schemas for School Eye Health Survey
-4. **src/hooks.server.ts** - Authentication and authorization middleware
-5. **src/lib/server/guards.ts** - Role-based access control guards
-6. **src/routes/(app)/surveys/submit/+page.svelte** - Main survey form
-7. **src/lib/server/services/survey-service.ts** - Survey CRUD with edit capability
+1. **.env.example** - Environment variables template
+2. **docker-compose.yml** - Docker setup with PostgreSQL 18 + secrets + bind mounts
+3. **Dockerfile** - Development container with hot reload
+4. **src/lib/server/db/schema.ts** - Complete database schema with all survey columns
+5. **src/lib/validation/survey.ts** - Zod schemas for School Eye Health Survey
+6. **src/hooks.server.ts** - Authentication and authorization middleware
+7. **src/lib/server/guards.ts** - Role-based access control guards
+8. **src/routes/(app)/surveys/submit/+page.svelte** - Main survey form
+9. **src/lib/server/services/survey-service.ts** - Survey CRUD with edit capability
+10. **.gitignore** - Include secrets/ directory
 
 ## Key Technical Decisions
 
@@ -418,61 +463,184 @@ export type SurveyFormData = z.infer<typeof surveySchema>;
 
 ## Deployment Strategy
 
-**Local Deployment with Docker Compose**
+**Local Deployment with Docker Compose & Docker Secrets**
 
 ```yaml
 # docker-compose.yml
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: school_survey
-      POSTGRES_USER: survey_admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_user
+      - db_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U survey_admin"]
+      test: ["CMD-SHELL", "pg_isready -U $$(cat /run/secrets/db_user)"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - survey_network
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
+      - "5173:5173"  # Vite dev server
     environment:
-      DATABASE_URL: postgresql://survey_admin:${DB_PASSWORD}@db:5432/school_survey
-      SESSION_SECRET: ${SESSION_SECRET}
-      NODE_ENV: production
+      NODE_ENV: development
+      DATABASE_URL_FILE: /run/secrets/database_url
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+    secrets:
+      - database_url
+      - session_secret
     depends_on:
       db:
         condition: service_healthy
     volumes:
+      # Bind mount for hot reload during development
+      - ./src:/app/src
+      - ./static:/app/static
+      - ./package.json:/app/package.json
+      - ./svelte.config.js:/app/svelte.config.js
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      # Named volume for node_modules (don't override)
+      - node_modules:/app/node_modules
+      # Upload directory
       - ./uploads:/app/uploads
+    networks:
+      - survey_network
+    command: npm run dev -- --host 0.0.0.0
+
+secrets:
+  db_user:
+    file: ./secrets/db_user.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  database_url:
+    file: ./secrets/database_url.txt
+  session_secret:
+    file: ./secrets/session_secret.txt
 
 volumes:
   postgres_data:
+  node_modules:
+
+networks:
+  survey_network:
+    driver: bridge
 ```
 
 **Dockerfile**
 ```dockerfile
 FROM node:20-alpine
+
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production
+
+# Install dependencies
+RUN npm ci
+
+# Copy application files
+COPY . .
+
+# Expose ports
+EXPOSE 3000 5173
+
+# Default command (can be overridden in docker-compose)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+```
+
+**Production Dockerfile** (`Dockerfile.prod`)
+```dockerfile
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
 COPY . .
 RUN npm run build
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/package*.json ./
+RUN npm ci --only=production
+
 EXPOSE 3000
 CMD ["node", "build"]
 ```
 
+**Environment Variables** (`.env.example`)
+```bash
+# Database Configuration
+DB_USER=survey_admin
+DB_PASSWORD=your_secure_password_here
+DB_NAME=school_survey
+DB_HOST=db
+DB_PORT=5432
+
+# Database URL (constructed from above)
+DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+
+# Session Secret (generate with: openssl rand -base64 32)
+SESSION_SECRET=your_session_secret_here
+
+# Application
+NODE_ENV=development
+PORT=3000
+
+# Optional: Sentry, Analytics, etc.
+# SENTRY_DSN=
+# ANALYTICS_ID=
+```
+
+**Setup Instructions**
+
+1. Create secrets directory:
+```bash
+mkdir -p secrets
+```
+
+2. Create secret files:
+```bash
+echo "survey_admin" > secrets/db_user.txt
+echo "$(openssl rand -base64 32)" > secrets/db_password.txt
+echo "postgresql://survey_admin:$(cat secrets/db_password.txt)@db:5432/school_survey" > secrets/database_url.txt
+echo "$(openssl rand -base64 32)" > secrets/session_secret.txt
+```
+
+3. Add secrets directory to .gitignore:
+```bash
+echo "secrets/" >> .gitignore
+```
+
+4. Start services:
+```bash
+docker compose up -d
+```
+
 **Backup Strategy**
-- Daily PostgreSQL dumps
+- Daily PostgreSQL dumps using `pg_dump`
 - Backup to external drive/NAS
 - Retention: 30 days
+- Automated backup script in `scripts/backup.sh`
 
 ## Next Steps
 
