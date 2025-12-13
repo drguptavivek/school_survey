@@ -231,9 +231,9 @@
 
 ## Current Status
 
-**Current Phase**: Phase 1 - Foundation & Setup
-**Current Week**: Week 2 - Authentication System
-**Last Updated**: December 13, 2024
+**Current Phase**: Phase 2 - School & Survey Management
+**Current Week**: Week 4 - School Management (IN PROGRESS)
+**Last Updated**: December 14, 2024
 
 ### Week 1 Progress: ✅ COMPLETE
 - [x] Initialize SvelteKit project with TypeScript (with Tailwind, Drizzle, Vitest)
@@ -294,15 +294,68 @@
 - ✅ Dashboard accessible with authenticated session
 - ✅ Logout clears session and redirects to login
 
-### Next Steps (Week 3):
-1. Create partner CRUD operations and service layer
-2. Create district CRUD operations and service layer
-3. Build partner management UI with list, create, update, delete
-4. Build district management UI
-5. Implement partner-district 1:1 mapping
-6. Build national admin dashboard with metrics
-7. Implement audit logging for sensitive operations
-8. Test RBAC enforcement for partner operations
+### Week 3 Progress: ✅ COMPLETE
+- [x] Create partners table schema with auto-generated codes
+- [x] Create districts table schema with auto-generated codes
+- [x] Implement partner CRUD service layer
+- [x] Implement district CRUD service layer
+- [x] Build partner management UI (list, create, edit, delete)
+- [x] Build district management UI (list, create, edit, delete)
+- [x] Implement partner-district 1:1 relationship
+- [x] Add audit logging for partner/district operations
+- [x] Test RBAC enforcement
+- [x] Auto-generated codes working (partner starts at 11, district starts at 101)
+
+### Week 3 Deliverables: ✅ ACHIEVED
+- ✅ Partner management fully functional with auto-generated codes
+- ✅ District management fully functional with auto-generated codes
+- ✅ Proper audit trail for all partner/district changes
+- ✅ Role-based access control working for admin-only operations
+
+### Week 4 Progress: 🔄 IN PROGRESS
+- [x] Create schools table schema with 27 columns (17 new fields added)
+- [x] Apply database migrations to add new school fields
+- [x] Create Zod validation schema for school creation/update
+- [x] Build school add form with TanStack Form
+- [x] Build school edit form with TanStack Form
+- [x] Implement auto-generated school codes (starts at 201)
+- [x] Implement auto-partner population from selected district
+- [x] Fix hidden field value binding (use reactive variables, not form state)
+- [x] Add phone number validation (min 10 digits)
+- [x] Restrict student strength input to numbers only
+- [x] Add keyboard accessibility (tabindex) to checkboxes
+- [x] Debug and fix form submission issues
+- [x] Test school creation end-to-end
+- [ ] CSV bulk upload functionality
+- [ ] School selection for surveys
+
+### Week 4 Deliverables (Partial): ✅ IN PROGRESS
+- ✅ School add/edit forms fully functional with 17 fields
+- ✅ Auto-generated school codes working (starts at 201)
+- ✅ Database migrations applied successfully
+- ✅ Form validation with phone number and student strength checks
+- ✅ Keyboard accessibility for all form controls
+- ⏳ CSV bulk upload (next)
+- ⏳ School selection interface (next)
+
+### Week 4 Bug Fixes & Improvements:
+1. **Hidden Input Field Binding**: Changed from `value={field.state.value}` to `value={selectedPartner}` to ensure hidden inputs are properly submitted with native form submission
+2. **Phone Validation**: Added regex validation requiring min 10 digits in any format (+1 234 567 8901, (123)456-7890, etc.)
+3. **Numeric Input**: Changed from `type="number"` to `type="text"` with `inputmode="numeric"` and JavaScript filtering to prevent alphabet input
+4. **Checkbox Tab Order**: Added `tabindex="0"` to class checkboxes for keyboard accessibility
+5. **Form State Sync**: Fixed issue where TanStack form internal state wasn't syncing with DOM before native form submission
+
+### Svelte Gotchas Documented:
+- TanStack Form + Native Form Submission synchronization
+- Checkbox keyboard accessibility requires tabindex
+- HTML5 type="number" allows letter typing (use text + inputmode instead)
+- Drizzle migrations must be explicitly applied with `npm run db:migrate`
+
+### Next Steps (Week 4 completion):
+1. Implement CSV bulk upload for schools
+2. Build school selection UI for surveys
+3. Add school filtering by district and state
+4. Test bulk operations with sample data
 
 ---
 
