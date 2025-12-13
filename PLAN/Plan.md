@@ -1,0 +1,484 @@
+# School Survey Application - Implementation Plan
+
+## Project Overview
+A large-scale multi-tenant survey application for educational data collection across 60 districts with hierarchical access control. Built with Svelte 5 + SvelteKit + PostgreSQL.
+
+## User Hierarchy & Roles
+
+### 1. National Coordinating Centre
+- **National Admins (2-3)**: Create partners, map partners to districts, full system access
+- **Data Managers (2-3)**: View all data, download national-level reports
+
+### 2. Partners (40 partners across 60 districts)
+- **Partner Managers (1-2 per partner)**: Manage teams, upload schools, download partner reports
+- **Team Members (6-7 per partner)**: Submit child-level survey forms at schools
+
+### 3. Survey Workflow
+1. National admin creates partner accounts and maps them to districts
+2. Partner managers upload school lists for their assigned districts
+3. Partner managers select schools for survey
+4. Team members visit schools and fill survey forms for each child
+5. National level views all data; partners view only their own data
+
+## Technology Stack
+- **Frontend**: Svelte 5 with runes ($state, $derived)
+- **Framework**: SvelteKit (SSR, form actions, file-based routing)
+- **Backend**: Node.js
+- **Database**: PostgreSQL in Docker
+- **ORM**: Drizzle ORM
+- **Validation**: Zod (server + client)
+- **Authentication**: Session-based (httpOnly cookies)
+- **Reporting**: ExcelJS for Excel, json2csv for CSV exports
+- **Charts**: Chart.js for visualizations
+- **Deployment**: Docker Compose (local deployment)
+
+## Database Schema
+
+### Core Tables
+
+#### survey_responses (School Eye Health Survey)
+Each row represents one child's complete eye health assessment with the following sections:
+
+**Section A: Basic Details**
+- `id` (UUID, primary key)
+- `survey_date` (date, required)
+- `district_id` (UUID, FK to districts)
+- `area_type` (enum: 'rural', 'urban')
+- `school_id` (UUID, FK to schools)
+- `class` (integer 3-12)
+- `section` (varchar)
+- `roll_no` (varchar)
+- `student_name` (varchar, required)
+- `sex` (enum: 'male', 'female')
+- `age` (integer)
+- `consent` (enum: 'yes', 'refused', 'absent')
+
+**Section B: Distance Vision**
+- `uses_distance_glasses` (boolean)
+- `unaided_va_right_eye` (varchar - LogMAR value)
+- `unaided_va_left_eye` (varchar - LogMAR value)
+- `presenting_va_right_eye` (varchar - LogMAR value)
+- `presenting_va_left_eye` (varchar - LogMAR value)
+- `referred_for_refraction` (boolean)
+
+**Section C: Refraction Details**
+- `spherical_power_right` (decimal)
+- `spherical_power_left` (decimal)
+- `cylindrical_power_right` (decimal)
+- `cylindrical_power_left` (decimal)
+- `axis_right` (integer 0-180)
+- `axis_left` (integer 0-180)
+- `bcva_right_eye` (varchar - LogMAR value)
+- `bcva_left_eye` (varchar - LogMAR value)
+
+**Section D: Main Cause of Vision Impairment**
+- `cause_right_eye` (enum: 'uncorrected_refractive_error', 'cataract', 'corneal_opacity', 'posterior_segment_diseases', 'phthisis', 'globe_abnormalities', 'other')
+- `cause_right_eye_other` (varchar, nullable)
+- `cause_left_eye` (enum: same as above)
+- `cause_left_eye_other` (varchar, nullable)
+
+**Section E: Barriers for Uncorrected Refractive Error**
+- `barrier` (enum: 'lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford', 'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany', 'glasses_broken')
+
+**Section F: Follow-up Details**
+- `time_since_last_checkup` (enum: 'less_than_1_year', '1_to_2_years', 'more_than_2_years')
+- `place_of_last_refraction` (enum: 'government', 'private_ngo')
+- `cost_of_glasses` (enum: 'free', 'paid')
+- `uses_spectacle_regularly` (boolean)
+- `spectacle_alignment_centering` (boolean)
+- `spectacle_scratches` (enum: 'none', 'superficial_few', 'deep_multiple')
+- `spectacle_frame_integrity` (enum: 'not_broken', 'broken_taped_glued')
+
+**Section G: Advice**
+- `spectacles_prescribed` (boolean)
+- `referred_to_ophthalmologist` (boolean)
+
+**Metadata & Audit**
+- `partner_id` (UUID, FK to partners)
+- `submitted_by` (UUID, FK to users)
+- `submitted_at` (timestamp)
+- `last_edited_by` (UUID, FK to users, nullable)
+- `last_edited_at` (timestamp, nullable)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+#### Other Core Tables
+- **users**: User accounts with role and partner association
+- **partners**: Partner organizations
+- **districts**: Geographic districts (60 districts)
+- **partner_districts**: Many-to-many mapping of partners to districts
+- **schools**: School listings uploaded by partners
+- **sessions**: Session management for authentication
+- **audit_logs**: Track all sensitive operations (especially edits to survey data)
+
+### Data Isolation Strategy
+- PostgreSQL Row-Level Security (RLS) policies
+- Session variables (`app.current_user_id`, `app.current_partner_id`)
+- Automatic filtering based on user role and partner
+- Audit logging for all survey data edits
+
+## Project Structure
+
+```
+src/
+├── lib/
+│   ├── server/
+│   │   ├── db/              # Database schema and queries
+│   │   ├── auth.ts          # Session management
+│   │   ├── guards.ts        # Authorization guards
+│   │   ├── services/        # Business logic
+│   │   └── reports/         # Report generation
+│   ├── components/          # Shared UI components
+│   │   ├── ui/             # Button, Input, Table, Modal
+│   │   ├── forms/          # FormField, FileUpload, SurveyForm
+│   │   └── layout/         # Header, Sidebar
+│   └── types/              # TypeScript types
+│
+├── routes/
+│   ├── (auth)/             # Login/logout
+│   ├── (app)/              # Protected routes
+│   │   ├── dashboard/
+│   │   ├── partners/
+│   │   ├── districts/
+│   │   ├── schools/
+│   │   ├── surveys/
+│   │   ├── users/
+│   │   └── reports/
+│   └── api/                # API endpoints
+│
+└── hooks.server.ts         # Auth & session handling
+```
+
+## Implementation Phases
+
+### Phase 1: Foundation (Weeks 1-3)
+**Setup & Authentication**
+
+**Week 1: Project Setup**
+- Initialize SvelteKit project with TypeScript
+- Configure PostgreSQL database
+- Set up Drizzle ORM
+- Configure project structure and tooling
+
+**Week 2: Authentication**
+- Session-based authentication system
+- User management CRUD
+- Role-based access control (RBAC)
+- Login/logout flows
+- Authorization guards
+
+**Week 3: Core Data Models**
+- Partner management
+- District management
+- Partner-district mapping
+- Basic admin dashboard
+- Audit logging
+
+**Deliverables**: Working authentication, national admin can create partners and map to districts
+
+### Phase 2: School & Survey Management (Weeks 4-6)
+**Partner Manager Features**
+
+**Week 4: School Management**
+- School CRUD operations
+- CSV bulk upload for schools
+- School selection for surveys
+- School list views with filtering
+- Upload validation
+
+**Week 5: Survey Form System**
+- School Eye Health Survey form implementation
+- Zod validation schemas (client + server)
+- Visual acuity dropdown components
+- Conditional field logic (e.g., B2 only if B1=Yes)
+- Form state management with Svelte 5 runes
+
+**Week 6: Partner Manager Interface**
+- Partner manager dashboard
+- Team member account creation
+- School upload interface
+- School selection interface
+- Permission enforcement
+
+**Deliverables**: Partner managers can upload schools, select schools for surveys, create team accounts
+
+### Phase 3: Survey Collection (Weeks 7-9)
+**Team Member Survey Submission**
+
+**Week 7: Survey Submission & Editing**
+- Survey submission workflow
+- Data validation with Zod
+- Survey data editing for partner managers
+- Edit history and audit trail
+- Data correction workflows
+
+**Week 8: Offline Support**
+- Service worker implementation
+- LocalStorage for draft responses
+- Background sync API
+- Conflict resolution
+- Sync status indicators
+
+**Week 9: Team Member Interface**
+- Team member dashboard
+- School assignment view
+- Survey submission interface
+- Submission history
+- Data quality checks
+
+**Deliverables**: Team members can submit surveys online/offline with automatic sync
+
+### Phase 4: Reporting & Analytics (Weeks 10-12)
+**Data Views & Reports**
+
+**Week 10: Data Views**
+- Partner-level data views
+- National-level data views
+- Data filtering and search
+- Paginated data tables
+- Summary statistics
+
+**Week 11: Report Generation**
+- Report templates
+- CSV export functionality
+- Excel export functionality
+- Partner-specific reports
+- National-level reports
+
+**Week 12: Dashboard & Analytics**
+- Chart.js visualizations
+- Progress tracking metrics
+- Performance metrics
+- Data quality reports
+- Completion statistics
+
+**Deliverables**: Comprehensive reporting with CSV/Excel exports, dashboards for all user types
+
+### Phase 5: Polish & Production (Weeks 13-14)
+**Testing & Deployment**
+
+**Week 13**: Testing, security audit, bug fixes, documentation
+**Week 14**: Production deployment, user training, monitoring setup
+
+## Zod Validation Schema Structure
+
+The School Eye Health Survey will have comprehensive Zod schemas for type-safe validation:
+
+```typescript
+// src/lib/validation/survey.ts
+import { z } from 'zod';
+
+const visualAcuityOptions = [
+  '0.00', '0.10', '0.20', '0.30', '0.40', '0.50', '0.60',
+  '0.70', '0.80', '0.90', '1.00', '1.3', '1.8', 'FCCF',
+  'HM', 'PL+', 'PL-'
+] as const;
+
+export const surveySchema = z.object({
+  // Section A: Basic Details
+  survey_date: z.date(),
+  district_id: z.string().uuid(),
+  area_type: z.enum(['rural', 'urban']),
+  school_id: z.string().uuid(),
+  class: z.number().int().min(3).max(12),
+  section: z.string().min(1),
+  roll_no: z.string().min(1),
+  student_name: z.string().min(2),
+  sex: z.enum(['male', 'female']),
+  age: z.number().int().min(5).max(20),
+  consent: z.enum(['yes', 'refused', 'absent']),
+
+  // Section B: Distance Vision
+  uses_distance_glasses: z.boolean(),
+  unaided_va_right_eye: z.enum(visualAcuityOptions).nullable(),
+  unaided_va_left_eye: z.enum(visualAcuityOptions).nullable(),
+  presenting_va_right_eye: z.enum(visualAcuityOptions),
+  presenting_va_left_eye: z.enum(visualAcuityOptions),
+  referred_for_refraction: z.boolean(),
+
+  // Section C: Refraction Details (conditional)
+  spherical_power_right: z.number().nullable(),
+  spherical_power_left: z.number().nullable(),
+  cylindrical_power_right: z.number().nullable(),
+  cylindrical_power_left: z.number().nullable(),
+  axis_right: z.number().int().min(0).max(180).nullable(),
+  axis_left: z.number().int().min(0).max(180).nullable(),
+  bcva_right_eye: z.enum(visualAcuityOptions).nullable(),
+  bcva_left_eye: z.enum(visualAcuityOptions).nullable(),
+
+  // Section D: Main Cause
+  cause_right_eye: z.enum([
+    'uncorrected_refractive_error', 'cataract', 'corneal_opacity',
+    'posterior_segment_diseases', 'phthisis', 'globe_abnormalities', 'other'
+  ]).nullable(),
+  cause_right_eye_other: z.string().nullable(),
+  cause_left_eye: z.enum([
+    'uncorrected_refractive_error', 'cataract', 'corneal_opacity',
+    'posterior_segment_diseases', 'phthisis', 'globe_abnormalities', 'other'
+  ]).nullable(),
+  cause_left_eye_other: z.string().nullable(),
+
+  // Section E: Barriers
+  barrier: z.enum([
+    'lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford',
+    'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany',
+    'glasses_broken'
+  ]).nullable(),
+
+  // Section F: Follow-up
+  time_since_last_checkup: z.enum(['less_than_1_year', '1_to_2_years', 'more_than_2_years']).nullable(),
+  place_of_last_refraction: z.enum(['government', 'private_ngo']).nullable(),
+  cost_of_glasses: z.enum(['free', 'paid']).nullable(),
+  uses_spectacle_regularly: z.boolean().nullable(),
+  spectacle_alignment_centering: z.boolean().nullable(),
+  spectacle_scratches: z.enum(['none', 'superficial_few', 'deep_multiple']).nullable(),
+  spectacle_frame_integrity: z.enum(['not_broken', 'broken_taped_glued']).nullable(),
+
+  // Section G: Advice
+  spectacles_prescribed: z.boolean(),
+  referred_to_ophthalmologist: z.boolean()
+}).refine((data) => {
+  // Custom validation: If uses_distance_glasses is true, unaided VA is required
+  if (data.uses_distance_glasses) {
+    return data.unaided_va_right_eye !== null && data.unaided_va_left_eye !== null;
+  }
+  return true;
+}, {
+  message: "Unaided visual acuity required when child uses glasses"
+});
+
+export type SurveyFormData = z.infer<typeof surveySchema>;
+```
+
+**Key Features:**
+- Enum validation for dropdowns and radio buttons
+- Range validation for numeric fields (age, class, axis)
+- Conditional validation (e.g., unaided VA required if uses glasses)
+- Nullable fields for optional data
+- Type inference for TypeScript autocomplete
+
+## Critical Files to Create First
+
+1. **docker-compose.yml** - Docker setup for PostgreSQL + app
+2. **src/lib/server/db/schema.ts** - Complete database schema with all survey columns
+3. **src/lib/validation/survey.ts** - Zod schemas for School Eye Health Survey
+4. **src/hooks.server.ts** - Authentication and authorization middleware
+5. **src/lib/server/guards.ts** - Role-based access control guards
+6. **src/routes/(app)/surveys/submit/+page.svelte** - Main survey form
+7. **src/lib/server/services/survey-service.ts** - Survey CRUD with edit capability
+
+## Key Technical Decisions
+
+### Why Session-based Auth?
+- Immediate session revocation for security
+- Better suited for SSR applications
+- Simpler implementation with SvelteKit
+- Built-in CSRF protection
+
+### Why Drizzle ORM?
+- Type-safe queries prevent runtime errors
+- Excellent PostgreSQL support
+- Lightweight compared to Prisma
+- Easy to write raw SQL when needed
+
+### Why Columnar Storage for Survey Data?
+- Type-safe validation with Zod schemas
+- Easier querying and filtering for reports
+- Better data integrity with proper constraints
+- Simplified data editing and correction workflows
+- Clear schema for partner managers to understand data structure
+
+### Why Materialized Views for Reports?
+- Fast performance for complex aggregations
+- Reduces database load during reporting
+- Can refresh on schedule or on-demand
+
+## Security Measures
+
+- HTTPS only in production
+- Password hashing with bcrypt (cost 12)
+- httpOnly, secure session cookies
+- CSRF protection (SvelteKit built-in)
+- SQL injection prevention (parameterized queries)
+- XSS prevention (Svelte auto-escaping)
+- Rate limiting on auth endpoints
+- Server + client input validation
+- Audit logging for sensitive operations
+- PostgreSQL Row-Level Security (RLS)
+
+## Performance Optimizations
+
+- Database indexes on all foreign keys and frequently queried columns
+- Materialized views for reporting aggregations
+- Query pagination (50-100 items per page)
+- Lazy loading for survey forms
+- HTTP caching for static data
+- Debouncing for search inputs
+- Code splitting (automatic with SvelteKit)
+
+## Deployment Strategy
+
+**Local Deployment with Docker Compose**
+
+```yaml
+# docker-compose.yml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: school_survey
+      POSTGRES_USER: survey_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U survey_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://survey_admin:${DB_PASSWORD}@db:5432/school_survey
+      SESSION_SECRET: ${SESSION_SECRET}
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  postgres_data:
+```
+
+**Dockerfile**
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["node", "build"]
+```
+
+**Backup Strategy**
+- Daily PostgreSQL dumps
+- Backup to external drive/NAS
+- Retention: 30 days
+
+## Next Steps
+
+Once approved, implementation will begin with:
+1. SvelteKit project initialization
+2. PostgreSQL database setup
+3. Drizzle ORM configuration
+4. Authentication system implementation
+5. User and partner management features
