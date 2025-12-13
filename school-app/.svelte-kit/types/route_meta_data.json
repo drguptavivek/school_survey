@@ -16,7 +16,6 @@
 		"src/routes/(auth)/+layout.server.ts"
 	],
 	"/(auth)/logout": [
-		"src/routes/(auth)/logout/+page.server.ts",
-		"src/routes/(auth)/+layout.server.ts"
+		"src/routes/(auth)/logout/+server.ts"
 	]
 }
