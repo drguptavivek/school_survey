@@ -422,6 +422,7 @@
 								<input
 									name="hasPrimary"
 									type="checkbox"
+									tabindex="0"
 									checked={field.state.value ?? false}
 									on:change={(event) => {
 										field.handleChange((event.target as HTMLInputElement).checked);
@@ -439,6 +440,7 @@
 								<input
 									name="hasMiddle"
 									type="checkbox"
+									tabindex="0"
 									checked={field.state.value ?? false}
 									on:change={(event) => {
 										field.handleChange((event.target as HTMLInputElement).checked);
@@ -456,6 +458,7 @@
 								<input
 									name="hasTenth"
 									type="checkbox"
+									tabindex="0"
 									checked={field.state.value ?? false}
 									on:change={(event) => {
 										field.handleChange((event.target as HTMLInputElement).checked);
@@ -473,6 +476,7 @@
 								<input
 									name="has12th"
 									type="checkbox"
+									tabindex="0"
 									checked={field.state.value ?? false}
 									on:change={(event) => {
 										field.handleChange((event.target as HTMLInputElement).checked);
