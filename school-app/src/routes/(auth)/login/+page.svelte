@@ -2,12 +2,13 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
+	import type { SubmitFunction } from '@sveltejs/kit';
 
 	export let form;
 
 	let isLoading = false;
 
-	const handleEnhance = () => {
+	const handleEnhance: SubmitFunction = () => {
 		isLoading = true;
 
 		return async ({ result, update }) => {

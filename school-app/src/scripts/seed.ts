@@ -8,11 +8,10 @@ import bcrypt from 'bcrypt';
 // Load .env file
 config();
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL ?? '';
 
-if (!DATABASE_URL) {
-	console.error('❌ DATABASE_URL is not set in .env file');
-	process.exit(1);
+if (!databaseUrl) {
+	throw new Error('DATABASE_URL is not set in .env file');
 }
 
 const HASH_ROUNDS = 12;
@@ -21,7 +20,7 @@ async function seedDatabase() {
 	try {
 		console.log('🌱 Seeding database with initial users...');
 
-		const client = postgres(DATABASE_URL);
+		const client = postgres(databaseUrl);
 		const db = drizzle(client, { schema: { users } });
 
 		// Hash passwords for demo accounts

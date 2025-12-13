@@ -650,3 +650,7 @@ Once approved, implementation will begin with:
 3. Drizzle ORM configuration
 4. Authentication system implementation
 5. User and partner management features
+
+## Recent Updates
+- Partners management now uses Superforms + Zod for realtime validation (email/phone/length) and pre-submit code uniqueness feedback.
+- Partner add/edit flows are modal-based and persist via Drizzle with uniqueness checks against existing partner codes.
