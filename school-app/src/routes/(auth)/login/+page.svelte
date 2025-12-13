@@ -1,10 +1,38 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 
 	export let form;
 
 	let isLoading = false;
+
+	const handleEnhance = () => {
+		isLoading = true;
+
+		return async ({ result, update }) => {
+			// On failure or error, re-enable the form and show errors
+			if (result.type === 'failure' || result.type === 'error') {
+				await update();
+				isLoading = false;
+				return;
+			}
+
+			// Handle redirects explicitly (e.g., redirect to dashboard on success)
+			if (result.type === 'redirect') {
+				isLoading = false;
+				await goto(result.location);
+				return;
+			}
+
+			// On success without redirect, still re-enable after updating
+			if (result.type === 'success') {
+				await update();
+				isLoading = false;
+			}
+			// Redirect case: navigation handled by SvelteKit
+		};
+	};
 </script>
 
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
@@ -24,7 +52,7 @@
 			{/if}
 
 			<!-- Login Form -->
-			<form method="POST" use:enhance={() => { isLoading = true; }}>
+			<form method="POST" use:enhance={handleEnhance}>
 				<div class="space-y-4">
 					<!-- Email Field -->
 					<div>

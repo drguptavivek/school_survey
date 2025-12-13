@@ -5,7 +5,9 @@
 	"/(app)": [
 		"src/routes/(app)/+layout.server.ts"
 	],
-	"/": [],
+	"/": [
+		"src/routes/+page.server.ts"
+	],
 	"/(app)/dashboard": [
 		"src/routes/(app)/+layout.server.ts"
 	],
