@@ -34,16 +34,15 @@ docker compose up -d
 
 This starts:
 - **PostgreSQL 18** on `localhost:5432`
-- **SvelteKit App** on `http://localhost:3000`
-- **Vite Dev Server** on `http://localhost:5173`
+
 
 ### 3. Run Migrations
 ```bash
-docker compose exec app npm run db:push
+npm run db:push
 ```
 
 ### 4. Access the Application
-- Open `http://localhost:3000` in your browser
+- Open `http://localhost:5174` in your browser
 - Login with initial admin credentials (to be set up)
 
 ---

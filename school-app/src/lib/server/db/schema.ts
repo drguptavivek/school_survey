@@ -274,7 +274,6 @@ export const auditLogs = pgTable(
 export const usersRelations = relations(users, ({ many, one }) => ({
 	sessions: many(sessions),
 	createdPartners: many(partners, { relationName: 'createdBy' }),
-	createdDistricts: many(districts, { relationName: 'createdBy' }),
 	selectedSchools: many(schools, { relationName: 'selectedBy' }),
 	uploadedSchools: many(schools, { relationName: 'uploadedBy' }),
 	submittedSurveys: many(surveyResponses, { relationName: 'submittedBy' }),
@@ -317,6 +316,16 @@ export const schoolsRelations = relations(schools, ({ many, one }) => ({
 	partner: one(partners, {
 		fields: [schools.partnerId],
 		references: [partners.id]
+	}),
+	selector: one(users, {
+		fields: [schools.selectedBy],
+		references: [users.id],
+		relationName: 'selectedBy'
+	}),
+	uploader: one(users, {
+		fields: [schools.uploadedBy],
+		references: [users.id],
+		relationName: 'uploadedBy'
 	}),
 	surveys: many(surveyResponses)
 }));
