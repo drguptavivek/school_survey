@@ -48,7 +48,7 @@ const onKeydown = (event: KeyboardEvent) => {
 	};
 </script>
 
-<div class="space-y-4" on:keydown={onKeydown} tabindex="-1">
+<div class="space-y-4" on:keydown={onKeydown} tabindex="-1" role="presentation">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div>
 			<p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Partners</p>
