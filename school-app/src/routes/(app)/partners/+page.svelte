@@ -70,6 +70,7 @@
 						<th class="py-2 pr-3">Contact</th>
 						<th class="py-2 pr-3">Districts</th>
 						<th class="py-2 pr-3">Status</th>
+						<th class="py-2 pr-3 text-right">Actions</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200">
@@ -99,6 +100,14 @@
 								>
 									{partner.isActive ? 'Active' : 'Inactive'}
 								</span>
+							</td>
+							<td class="py-2 pr-3 text-right">
+								<a
+									href={`/partners/${partner.id}/edit`}
+									class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
+								>
+									Edit
+								</a>
 							</td>
 						</tr>
 					{/each}
