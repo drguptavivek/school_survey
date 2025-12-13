@@ -22,7 +22,9 @@
 		</div>
 		<div class="flex items-center gap-2">
 			<form method="GET" action="/partners" class="flex items-center gap-2" bind:this={searchForm}>
+				<label class="sr-only" for="partner-search">Search partners</label>
 				<input
+					id="partner-search"
 					type="search"
 					name="q"
 					placeholder="Search by name, code, email"
@@ -32,6 +34,7 @@
 						const target = event.target as HTMLInputElement;
 						search = target.value;
 					}}
+					aria-label="Search partners by name, code, or email"
 				/>
 				<button
 					class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300"

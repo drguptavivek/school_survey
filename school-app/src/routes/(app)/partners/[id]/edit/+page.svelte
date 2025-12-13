@@ -26,67 +26,80 @@
 		<input type="hidden" name="id" value={values.id} />
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			<label class="block text-sm text-slate-700">
+			<label class="block text-sm text-slate-700" for="name">
 				Name
 				<input
+					id="name"
 					name="name"
 					required
 					maxlength="255"
 					value={values.name}
 					class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+					aria-invalid={errors?.name ? 'true' : 'false'}
+					aria-describedby={errors?.name ? 'name-error' : undefined}
 				/>
 				{#if errors?.name}
-					<p class="text-xs text-red-600 mt-1">{errors.name[0]}</p>
+					<p class="text-xs text-red-600 mt-1" id="name-error">{errors.name[0]}</p>
 				{/if}
 			</label>
 
-			<label class="block text-sm text-slate-700">
+			<label class="block text-sm text-slate-700" for="code">
 				Code
 				<input
+					id="code"
 					name="code"
 					required
 					maxlength="50"
 					value={values.code}
 					class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100 uppercase"
+					aria-invalid={errors?.code ? 'true' : 'false'}
+					aria-describedby={errors?.code ? 'code-error' : undefined}
 				/>
 				{#if errors?.code}
-					<p class="text-xs text-red-600 mt-1">{errors.code[0]}</p>
+					<p class="text-xs text-red-600 mt-1" id="code-error">{errors.code[0]}</p>
 				{/if}
 			</label>
 		</div>
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			<label class="block text-sm text-slate-700">
+			<label class="block text-sm text-slate-700" for="contactEmail">
 				Contact email
 				<input
+					id="contactEmail"
 					type="email"
 					name="contactEmail"
 					maxlength="255"
 					value={values.contactEmail ?? ''}
 					class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+					aria-invalid={errors?.contactEmail ? 'true' : 'false'}
+					aria-describedby={errors?.contactEmail ? 'contactEmail-error' : undefined}
 				/>
 				{#if errors?.contactEmail}
-					<p class="text-xs text-red-600 mt-1">{errors.contactEmail[0]}</p>
+					<p class="text-xs text-red-600 mt-1" id="contactEmail-error">{errors.contactEmail[0]}</p>
 				{/if}
 			</label>
-			<label class="block text-sm text-slate-700">
+			<label class="block text-sm text-slate-700" for="contactPhone">
 				Contact phone
 				<input
+					id="contactPhone"
 					name="contactPhone"
 					pattern={phonePattern}
 					title="6-20 characters; digits, spaces, + ( ) -"
 					maxlength="50"
 					value={values.contactPhone ?? ''}
 					class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+					aria-invalid={errors?.contactPhone ? 'true' : 'false'}
+					aria-describedby={errors?.contactPhone ? 'contactPhone-error' : undefined}
 				/>
 				{#if errors?.contactPhone}
-					<p class="text-xs text-red-600 mt-1">{errors.contactPhone[0]}</p>
+					<p class="text-xs text-red-600 mt-1" id="contactPhone-error">{errors.contactPhone[0]}</p>
 				{/if}
 			</label>
 		</div>
 
-		<label class="flex items-center gap-2 text-sm text-slate-700">
+		<label class="flex items-center gap-2 text-sm text-slate-700" for="isActive">
 			<input
+				id="isActive"
 				type="checkbox"
 				name="isActive"
 				checked={values.isActive}
