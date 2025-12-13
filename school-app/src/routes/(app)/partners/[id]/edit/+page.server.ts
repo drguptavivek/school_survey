@@ -27,6 +27,8 @@ export const load: PageServerLoad = async (event) => {
 		throw error(404, 'Partner not found');
 	}
 
+	const existingCodes = await db.select({ id: partners.id, code: partners.code }).from(partners);
+
 	const values: PartnerInput & { id?: string } = {
 		...record[0],
 		contactEmail: record[0].contactEmail ?? '',
@@ -35,6 +37,7 @@ export const load: PageServerLoad = async (event) => {
 
 	return {
 		values,
+		existingCodes,
 		errors: null
 	};
 };

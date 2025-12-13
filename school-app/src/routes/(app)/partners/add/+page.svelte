@@ -15,9 +15,10 @@ import { writable } from 'svelte/store';
 		Record<'name' | 'code' | 'contactEmail' | 'contactPhone' | 'isActive', string[]>
 	>;
 
-const errors: PartnerErrors | null = form?.errors ?? (data.errors as PartnerErrors | null);
-const values: PartnerInput = form?.values ?? data.values;
-const fieldErrors = writable<PartnerErrors>({});
+	const errors: PartnerErrors | null = form?.errors ?? (data.errors as PartnerErrors | null);
+	const values: PartnerInput = form?.values ?? data.values;
+	const fieldErrors = writable<PartnerErrors>({});
+	const codeSet = new Set((data.existingCodes ?? []).map((c) => c.code.toUpperCase()));
 
 	const phonePattern = '[0-9+()\\-\\s]{6,20}';
 
@@ -45,18 +46,25 @@ const fieldErrors = writable<PartnerErrors>({});
 		isActive: partnerInputSchema.shape.isActive
 	};
 
-	const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
-		console.log('[ADD][validateField]', key, value);
+const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 	const result = fieldSchemas[key].safeParse(value);
+	const errs = result.success ? [] : result.error.issues.map((err) => err.message);
+	if (key === 'code') {
+		const normalized = String(value ?? '').toUpperCase();
+		if (normalized && codeSet.has(normalized)) {
+			errs.push('Code must be unique');
+		}
+	}
+
 	formApi.setFieldMeta(key, (prev) => ({
 		...prev,
-		errors: result.success ? [] : result.error.issues.map((err) => err.message)
+		errors: errs
 	}));
 	fieldErrors.update((curr) => ({
 		...curr,
-		[key]: result.success ? [] : result.error.issues.map((err) => err.message)
+		[key]: errs
 	}));
-	};
+};
 
 	onMount(() => {
 		// Rehydrate values/errors from the last action (server response)

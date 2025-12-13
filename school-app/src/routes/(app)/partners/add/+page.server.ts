@@ -16,7 +16,8 @@ const defaults: PartnerInput = {
 
 export const load: PageServerLoad = async (event) => {
 	await requireNationalAdmin(event);
-	return { values: defaults, errors: null };
+	const existingCodes = await db.select({ id: partners.id, code: partners.code }).from(partners);
+	return { values: defaults, errors: null, existingCodes };
 };
 
 export const actions: Actions = {
