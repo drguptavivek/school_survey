@@ -2,6 +2,7 @@
 
 - Current approach: plain HTML forms with Zod validation on the server; no Superforms. Keep client logic simple and let the server be the single source of truth.
 - Shared schema: use `src/lib/validation/partner.ts` for both add and edit; schemas normalize code to uppercase and coerce checkbox booleans.
+- Client-side validation: TanStack Form + Zod (via `src/lib/forms/zodAdapter.ts`) on add/edit pages, with per-field realtime errors stored in a Svelte store (`$fieldErrors`). Inputs validate on change, mark touched, and surface inline messages.
 - Routes:
   - Add: `/partners/add` (`+page.server.ts` does Zod validation, uniqueness check, redirect 303 to `/partners` on success).
   - Edit: `/partners/[id]/edit` (loads partner, validates with shared schema, enforces unique code, redirects 303 back to `/partners`).
