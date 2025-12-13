@@ -6,10 +6,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { logAudit } from '$lib/server/audit';
+import { INDIAN_STATES_UTS } from '$lib/data/indian-states';
 
 const defaults: DistrictCreateInput = {
 	name: '',
-	state: '',
+	state: INDIAN_STATES_UTS[0], // Default to first state
 	partnerId: ''
 };
 
@@ -30,7 +31,8 @@ export const load: PageServerLoad = async (event) => {
 	return { 
 		values: defaults, 
 		errors: null,
-		partners: partnersList
+		partners: partnersList,
+		states: INDIAN_STATES_UTS
 	};
 };
 

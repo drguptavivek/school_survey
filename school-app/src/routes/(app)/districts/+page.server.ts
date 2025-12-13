@@ -1,10 +1,10 @@
 import { db } from '$lib/server/db';
 import { districts, partners, schools } from '$lib/server/db/schema';
 import { requireNationalAdmin } from '$lib/server/guards';
-import { eq, ilike, or, sql } from 'drizzle-orm';
+import { eq, ilike, or, sql, and } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
-const getDistricts = async (search?: string) => {
+const getDistricts = async (search?: string, state?: string) => {
 	const term = search?.trim();
 
 	const rows = await db
@@ -22,12 +22,19 @@ const getDistricts = async (search?: string) => {
 		.leftJoin(partners, eq(districts.partnerId, partners.id))
 		.leftJoin(schools, eq(districts.id, schools.districtId))
 		.where(
-			term
-				? or(
-						ilike(districts.name, `%${term}%`),
-						ilike(districts.code, `%${term}%`),
-						ilike(districts.state, `%${term}%`),
-						ilike(sql`coalesce(${partners.name}, '')`, `%${term}%`)
+			term || state
+				? and(
+						term
+							? or(
+									ilike(districts.name, `%${term}%`),
+									ilike(districts.code, `%${term}%`),
+									ilike(districts.state, `%${term}%`),
+									ilike(sql`coalesce(${partners.name}, '')`, `%${term}%`)
+							  )
+							: undefined,
+						state
+							? eq(districts.state, state)
+							: undefined
 				  )
 				: undefined
 		)
@@ -40,11 +47,13 @@ const getDistricts = async (search?: string) => {
 export const load: PageServerLoad = async (event) => {
 	await requireNationalAdmin(event);
 	const search = event.url.searchParams.get('q') ?? undefined;
+	const state = event.url.searchParams.get('state') ?? undefined;
 
-	const districtsList = await getDistricts(search);
+	const districtsList = await getDistricts(search, state);
 
 	return {
 		districts: districtsList,
-		search
+		search,
+		state
 	};
 };

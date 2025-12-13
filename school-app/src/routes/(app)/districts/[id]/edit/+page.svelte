@@ -139,22 +139,26 @@ const validateFieldValue = (key: keyof DistrictUpdateInput, value: unknown) => {
 				{#snippet children(field)}
 					<label class="block text-sm text-slate-700" for="state">
 						State/UT
-						<input
+						<select
 							id="state"
 							name="state"
 							required
-							maxlength="100"
 							value={field.state.value ?? ''}
 							on:input={(event) => {
-								field.handleChange((event.target as HTMLInputElement).value);
+								field.handleChange((event.target as HTMLSelectElement).value);
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
-								validateFieldValue('state', (event.target as HTMLInputElement).value);
+								validateFieldValue('state', (event.target as HTMLSelectElement).value);
 							}}
 							on:blur={field.handleBlur}
 							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
 							aria-invalid={field.state.meta.errors?.length ? 'true' : 'false'}
 							aria-describedby={field.state.meta.errors?.length ? 'state-error' : undefined}
-						/>
+						>
+							<option value="">Select State/UT</option>
+							{#each data.states as state (state)}
+								<option value={state}>{state}</option>
+							{/each}
+						</select>
 						{#if $fieldErrors.state?.length}
 							<p class="text-xs text-red-600 mt-1" id="state-error">{$fieldErrors.state[0]}</p>
 						{/if}

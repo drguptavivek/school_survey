@@ -6,6 +6,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { logAudit } from '$lib/server/audit';
+import { INDIAN_STATES_UTS } from '$lib/data/indian-states';
 
 export const load: PageServerLoad = async (event) => {
 	await requireNationalAdmin(event);
@@ -30,7 +31,7 @@ export const load: PageServerLoad = async (event) => {
 	const values: DistrictUpdateInput & { id?: string } = {
 		id: record[0].id,
 		name: record[0].name,
-		state: record[0].state ?? '',
+		state: record[0].state ?? INDIAN_STATES_UTS[0],
 		partnerId: record[0].partnerId
 	};
 
@@ -49,7 +50,8 @@ export const load: PageServerLoad = async (event) => {
 		values,
 		errors: null,
 		code: record[0].code,
-		partners: partnersList
+		partners: partnersList,
+		states: INDIAN_STATES_UTS
 	};
 };
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { INDIAN_STATES_UTS } from '$lib/data/indian-states';
 
 const districtBaseSchema = z.object({
 	name: z
@@ -9,8 +10,10 @@ const districtBaseSchema = z.object({
 	state: z
 		.string()
 		.trim()
-		.min(2, 'State/UT is required')
-		.max(100, 'State/UT name is too long'),
+		.min(1, 'State/UT is required')
+		.refine((val) => INDIAN_STATES_UTS.includes(val), { 
+			message: 'Please select a valid Indian State/UT' 
+		}),
 	partnerId: z
 		.string()
 		.uuid({ message: 'Please select a valid partner' })
