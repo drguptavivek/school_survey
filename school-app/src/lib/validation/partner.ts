@@ -14,18 +14,12 @@ const booleanString = z
 		return false;
 	});
 
-export const partnerInputSchema = z.object({
+const partnerBaseSchema = z.object({
 	name: z
 		.string()
 		.trim()
 		.min(2, 'Name is required')
 		.max(255, 'Name is too long'),
-	code: z
-		.string()
-		.trim()
-		.min(2, 'Code is required')
-		.max(50, 'Code is too long')
-		.transform((val) => val.toUpperCase()),
 	contactEmail: z
 		.string()
 		.trim()
@@ -51,9 +45,11 @@ export const partnerInputSchema = z.object({
 	isActive: booleanString
 });
 
-export const partnerWithIdSchema = partnerInputSchema.extend({
+export const partnerCreateSchema = partnerBaseSchema;
+
+export const partnerUpdateSchema = partnerBaseSchema.extend({
 	id: z.string().uuid({ message: 'Partner id is required' })
 });
 
-export type PartnerInput = z.infer<typeof partnerInputSchema>;
-export type PartnerWithId = z.infer<typeof partnerWithIdSchema>;
+export type PartnerCreateInput = z.infer<typeof partnerCreateSchema>;
+export type PartnerUpdateInput = z.infer<typeof partnerUpdateSchema>;

@@ -1,24 +1,23 @@
 <script lang="ts">
 	import type { ActionData, PageData } from './$types';
-	import type { PartnerInput } from '$lib/validation/partner';
-	import { partnerInputSchema } from '$lib/validation/partner';
-import { zodAdapter } from '$lib/forms/zodAdapter';
-import { createForm } from '@tanstack/svelte-form';
-import { onMount } from 'svelte';
-import { z } from 'zod';
-import { writable } from 'svelte/store';
+	import type { PartnerCreateInput } from '$lib/validation/partner';
+	import { partnerCreateSchema } from '$lib/validation/partner';
+	import { zodAdapter } from '$lib/forms/zodAdapter';
+	import { createForm } from '@tanstack/svelte-form';
+	import { onMount } from 'svelte';
+	import { z } from 'zod';
+	import { writable } from 'svelte/store';
 
 	export let data: PageData;
 	export let form: ActionData;
 
 	type PartnerErrors = Partial<
-		Record<'name' | 'code' | 'contactEmail' | 'contactPhone' | 'comments' | 'isActive', string[]>
+		Record<'name' | 'contactEmail' | 'contactPhone' | 'comments' | 'isActive', string[]>
 	>;
 
 	const errors: PartnerErrors | null = form?.errors ?? (data.errors as PartnerErrors | null);
-	const values: PartnerInput = (form?.values ?? data.values) as PartnerInput;
+	const values: PartnerCreateInput = (form?.values ?? data.values) as PartnerCreateInput;
 	const fieldErrors = writable<PartnerErrors>({});
-	const codeSet = new Set((data.existingCodes ?? []).map((c) => c.code.toUpperCase()));
 
 	const phonePattern = '[0-9+()\\-\\s]{6,20}';
 
@@ -26,8 +25,8 @@ import { writable } from 'svelte/store';
 		defaultValues: values,
 		// Client-side validation mirrors the server Zod schema
 		validators: {
-			onChange: zodAdapter(partnerInputSchema),
-			onSubmit: zodAdapter(partnerInputSchema)
+			onChange: zodAdapter(partnerCreateSchema),
+			onSubmit: zodAdapter(partnerCreateSchema)
 		},
 		onSubmit: () => {
 			// Native submit to hit the server action after client validation succeeds
@@ -38,24 +37,17 @@ import { writable } from 'svelte/store';
 	const Field = formApi.Field;
 
 	let formEl: HTMLFormElement | null = null;
-	const fieldSchemas: Record<keyof PartnerInput, z.ZodTypeAny> = {
-		name: partnerInputSchema.shape.name,
-		code: partnerInputSchema.shape.code,
-		contactEmail: partnerInputSchema.shape.contactEmail,
-		contactPhone: partnerInputSchema.shape.contactPhone,
-		comments: partnerInputSchema.shape.comments,
-		isActive: partnerInputSchema.shape.isActive
+	const fieldSchemas: Record<keyof PartnerCreateInput, z.ZodTypeAny> = {
+		name: partnerCreateSchema.shape.name,
+		contactEmail: partnerCreateSchema.shape.contactEmail,
+		contactPhone: partnerCreateSchema.shape.contactPhone,
+		comments: partnerCreateSchema.shape.comments,
+		isActive: partnerCreateSchema.shape.isActive
 	};
 
-const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
+const validateFieldValue = (key: keyof PartnerCreateInput, value: unknown) => {
 	const result = fieldSchemas[key].safeParse(value);
 	const errs = result.success ? [] : result.error.issues.map((err) => err.message);
-	if (key === 'code') {
-		const normalized = String(value ?? '').toUpperCase();
-		if (normalized && codeSet.has(normalized)) {
-			errs.push('Code must be unique');
-		}
-	}
 
 	formApi.setFieldMeta(key, (prev) => ({
 		...prev,
@@ -71,12 +63,12 @@ const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 		// Rehydrate values/errors from the last action (server response)
 		if (values) {
 			for (const [key, val] of Object.entries(values)) {
-				formApi.setFieldValue(key as keyof PartnerInput, val as never, { dontValidate: true });
+				formApi.setFieldValue(key as keyof PartnerCreateInput, val as never, { dontValidate: true });
 			}
 		}
 		if (errors) {
 			for (const [key, val] of Object.entries(errors)) {
-				formApi.setFieldMeta(key as keyof PartnerInput, (prev) => ({
+				formApi.setFieldMeta(key as keyof PartnerCreateInput, (prev) => ({
 					...prev,
 					errors: val ?? []
 				}));
@@ -93,7 +85,9 @@ const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 	<div>
 		<p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Partners</p>
 		<h1 class="text-2xl font-bold text-slate-900">Add partner</h1>
-		<p class="text-sm text-slate-600">Create a new partner record. All fields except contact details are required.</p>
+		<p class="text-sm text-slate-600">
+			Create a new partner record. Code is auto-generated (serial from 11) and cannot be edited.
+		</p>
 	</div>
 
 	<form
@@ -125,33 +119,6 @@ const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 						/>
 						{#if $fieldErrors.name?.length}
 							<p class="text-xs text-red-600 mt-1" id="name-error">{$fieldErrors.name[0]}</p>
-						{/if}
-					</label>
-				{/snippet}
-			</Field>
-
-			<Field name="code">
-				{#snippet children(field)}
-					<label class="block text-sm text-slate-700" for="code">
-						Code
-						<input
-							id="code"
-							name="code"
-							required
-							maxlength="50"
-							value={field.state.value ?? ''}
-							on:input={(event) => {
-								field.handleChange((event.target as HTMLInputElement).value.toUpperCase());
-								field.setMeta((prev) => ({ ...prev, isTouched: true }));
-								validateFieldValue('code', (event.target as HTMLInputElement).value);
-							}}
-							on:blur={field.handleBlur}
-							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100 uppercase"
-							aria-invalid={field.state.meta.errors?.length ? 'true' : 'false'}
-							aria-describedby={field.state.meta.errors?.length ? 'code-error' : undefined}
-						/>
-						{#if $fieldErrors.code?.length}
-							<p class="text-xs text-red-600 mt-1" id="code-error">{$fieldErrors.code[0]}</p>
 						{/if}
 					</label>
 				{/snippet}

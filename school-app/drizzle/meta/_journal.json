@@ -15,6 +15,13 @@
       "when": 1765644116426,
       "tag": "0001_mean_riptide",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765650000000,
+      "tag": "0002_partner_code_sequence",
+      "breakpoints": true
     }
   ]
 }

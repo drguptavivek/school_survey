@@ -13,7 +13,7 @@ import {
 	index,
 	pgEnum
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // Enums
 export const userRoleEnum = pgEnum('user_role', [
@@ -104,7 +104,7 @@ export const partners = pgTable(
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
 		name: varchar('name', { length: 255 }).notNull(),
-		code: varchar('code', { length: 50 }).notNull().unique(),
+		code: varchar('code', { length: 50 }).notNull().unique().default(sql`nextval('partner_code_seq')`),
 		contactEmail: varchar('contact_email', { length: 255 }),
 		contactPhone: varchar('contact_phone', { length: 50 }),
 		isActive: boolean('is_active').default(true).notNull(),

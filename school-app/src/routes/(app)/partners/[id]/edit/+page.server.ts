@@ -1,9 +1,9 @@
 import { db } from '$lib/server/db';
 import { partners } from '$lib/server/db/schema';
 import { requireNationalAdmin } from '$lib/server/guards';
-import { partnerWithIdSchema, type PartnerInput } from '$lib/validation/partner';
+import { partnerUpdateSchema, type PartnerUpdateInput } from '$lib/validation/partner';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { logAudit } from '$lib/server/audit';
 
@@ -28,12 +28,9 @@ export const load: PageServerLoad = async (event) => {
 		throw error(404, 'Partner not found');
 	}
 
-		const existingCodes = await db.select({ id: partners.id, code: partners.code }).from(partners);
-
-	const values: PartnerInput & { id?: string } = {
+	const values: PartnerUpdateInput & { id?: string } = {
 		id: record[0].id,
 		name: record[0].name,
-		code: record[0].code,
 		contactEmail: record[0].contactEmail ?? '',
 		contactPhone: record[0].contactPhone ?? '',
 		comments: (record[0] as { comments?: string | null }).comments ?? '',
@@ -42,8 +39,8 @@ export const load: PageServerLoad = async (event) => {
 
 	return {
 		values,
-		existingCodes,
-		errors: null
+		errors: null,
+		code: record[0].code
 	};
 };
 
@@ -56,20 +53,18 @@ export const actions: Actions = {
 		const payload = {
 			id: formData.get('id') ?? paramId,
 			name: formData.get('name'),
-			code: formData.get('code'),
 			contactEmail: formData.get('contactEmail'),
 			contactPhone: formData.get('contactPhone'),
 			isActive: formData.get('isActive') ?? false
 		};
 
-		const parsed = partnerWithIdSchema.safeParse(payload);
+		const parsed = partnerUpdateSchema.safeParse(payload);
 
 		if (!parsed.success) {
 			return fail(400, {
 				values: {
 					id: String(payload.id ?? ''),
 					name: String(payload.name ?? ''),
-					code: String(payload.code ?? ''),
 					contactEmail: (payload.contactEmail as string | null) ?? '',
 					contactPhone: (payload.contactPhone as string | null) ?? '',
 					isActive: payload.isActive === true || payload.isActive === 'on' || payload.isActive === 'true'
@@ -78,7 +73,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const { id, name, code, contactEmail, contactPhone, isActive } = parsed.data;
+		const { id, name, contactEmail, contactPhone, isActive } = parsed.data;
 		const { comments } = parsed.data;
 
 		const existing = await db
@@ -99,24 +94,10 @@ export const actions: Actions = {
 			return fail(404, { errors: { id: ['Partner not found'] }, values: parsed.data });
 		}
 
-		const exists = await db
-			.select({ id: partners.id })
-			.from(partners)
-			.where(and(eq(partners.code, code), sql`${partners.id} != ${id}`))
-			.limit(1);
-
-		if (exists.length > 0) {
-			return fail(400, {
-				values: parsed.data,
-				errors: { code: ['Code must be unique'] }
-			});
-		}
-
 		const updated = await db
 			.update(partners)
 			.set({
 				name,
-				code,
 				contactEmail,
 				contactPhone,
 				isActive,
@@ -137,7 +118,14 @@ export const actions: Actions = {
 			entityType: 'partner',
 			entityId: id,
 			oldData: existing[0],
-			newData: { id, name, code, contactEmail, contactPhone, isActive }
+			newData: {
+				id,
+				name,
+				code: existing[0].code,
+				contactEmail,
+				contactPhone,
+				isActive
+			}
 		});
 
 	throw redirect(303, '/partners');
