@@ -1,16 +1,89 @@
-CREATE TYPE "public"."area_type" AS ENUM('rural', 'urban');--> statement-breakpoint
-CREATE TYPE "public"."barrier" AS ENUM('lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford', 'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany', 'glasses_broken');--> statement-breakpoint
-CREATE TYPE "public"."checkup_time" AS ENUM('less_than_1_year', '1_to_2_years', 'more_than_2_years');--> statement-breakpoint
-CREATE TYPE "public"."consent" AS ENUM('yes', 'refused', 'absent');--> statement-breakpoint
-CREATE TYPE "public"."frame_integrity" AS ENUM('not_broken', 'broken_taped_glued');--> statement-breakpoint
-CREATE TYPE "public"."glasses_quality" AS ENUM('free', 'paid');--> statement-breakpoint
-CREATE TYPE "public"."refraction_place" AS ENUM('government', 'private_ngo');--> statement-breakpoint
-CREATE TYPE "public"."school_type" AS ENUM('government', 'private', 'aided', 'other');--> statement-breakpoint
-CREATE TYPE "public"."scratches" AS ENUM('none', 'superficial_few', 'deep_multiple');--> statement-breakpoint
-CREATE TYPE "public"."sex" AS ENUM('male', 'female');--> statement-breakpoint
-CREATE TYPE "public"."user_role" AS ENUM('national_admin', 'data_manager', 'partner_manager', 'team_member');--> statement-breakpoint
-CREATE TYPE "public"."vision_cause" AS ENUM('uncorrected_refractive_error', 'cataract', 'corneal_opacity', 'posterior_segment_diseases', 'phthisis', 'globe_abnormalities', 'other');--> statement-breakpoint
-CREATE TABLE "audit_logs" (
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'area_type' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."area_type" AS ENUM('rural', 'urban');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'barrier' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."barrier" AS ENUM('lack_of_awareness', 'no_time', 'can_manage', 'unable_to_afford', 'parental_disapproval', 'dont_like_glasses', 'no_one_to_accompany', 'glasses_broken');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'checkup_time' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."checkup_time" AS ENUM('less_than_1_year', '1_to_2_years', 'more_than_2_years');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'consent' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."consent" AS ENUM('yes', 'refused', 'absent');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'frame_integrity' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."frame_integrity" AS ENUM('not_broken', 'broken_taped_glued');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'glasses_quality' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."glasses_quality" AS ENUM('free', 'paid');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'refraction_place' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."refraction_place" AS ENUM('government', 'private_ngo');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'school_type' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."school_type" AS ENUM('government', 'private', 'aided', 'other');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'scratches' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."scratches" AS ENUM('none', 'superficial_few', 'deep_multiple');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'sex' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."sex" AS ENUM('male', 'female');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'user_role' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."user_role" AS ENUM('national_admin', 'data_manager', 'partner_manager', 'team_member');
+	END IF;
+END$$;
+--> statement-breakpoint
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.typname = 'vision_cause' AND n.nspname = 'public') THEN
+		CREATE TYPE "public"."vision_cause" AS ENUM('uncorrected_refractive_error', 'cataract', 'corneal_opacity', 'posterior_segment_diseases', 'phthisis', 'globe_abnormalities', 'other');
+	END IF;
+END$$;
+--> statement-breakpoint
+
+CREATE TABLE IF NOT EXISTS "audit_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid,
 	"action" varchar(100) NOT NULL,
@@ -21,7 +94,7 @@ CREATE TABLE "audit_logs" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "districts" (
+CREATE TABLE IF NOT EXISTS "districts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"code" varchar(50) NOT NULL,
@@ -33,7 +106,7 @@ CREATE TABLE "districts" (
 	CONSTRAINT "districts_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
-CREATE TABLE "partners" (
+CREATE TABLE IF NOT EXISTS "partners" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"code" varchar(50) NOT NULL,
@@ -46,7 +119,7 @@ CREATE TABLE "partners" (
 	CONSTRAINT "partners_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
-CREATE TABLE "schools" (
+CREATE TABLE IF NOT EXISTS "schools" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar(255) NOT NULL,
 	"code" varchar(100),
@@ -65,7 +138,7 @@ CREATE TABLE "schools" (
 	"uploaded_by" uuid
 );
 --> statement-breakpoint
-CREATE TABLE "sessions" (
+CREATE TABLE IF NOT EXISTS "sessions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"token" varchar(255) NOT NULL,
@@ -76,7 +149,7 @@ CREATE TABLE "sessions" (
 	CONSTRAINT "sessions_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
-CREATE TABLE "survey_responses" (
+CREATE TABLE IF NOT EXISTS "survey_responses" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"survey_unique_id" varchar(255) NOT NULL,
 	"survey_date" date NOT NULL,
@@ -132,7 +205,7 @@ CREATE TABLE "survey_responses" (
 	CONSTRAINT "survey_responses_survey_unique_id_unique" UNIQUE("survey_unique_id")
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"password_hash" varchar(255) NOT NULL,
@@ -147,26 +220,27 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE INDEX "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "audit_logs_entity_idx" ON "audit_logs" USING btree ("entity_type","entity_id");--> statement-breakpoint
-CREATE INDEX "audit_logs_created_at_idx" ON "audit_logs" USING btree ("created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "districts_code_idx" ON "districts" USING btree ("code");--> statement-breakpoint
-CREATE INDEX "districts_partner_id_idx" ON "districts" USING btree ("partner_id");--> statement-breakpoint
-CREATE INDEX "districts_state_idx" ON "districts" USING btree ("state");--> statement-breakpoint
-CREATE UNIQUE INDEX "partners_code_idx" ON "partners" USING btree ("code");--> statement-breakpoint
-CREATE INDEX "schools_district_id_idx" ON "schools" USING btree ("district_id");--> statement-breakpoint
-CREATE INDEX "schools_partner_id_idx" ON "schools" USING btree ("partner_id");--> statement-breakpoint
-CREATE INDEX "schools_is_selected_idx" ON "schools" USING btree ("is_selected_for_survey");--> statement-breakpoint
-CREATE INDEX "schools_code_idx" ON "schools" USING btree ("code");--> statement-breakpoint
-CREATE INDEX "sessions_user_id_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "sessions_token_idx" ON "sessions" USING btree ("token");--> statement-breakpoint
-CREATE INDEX "sessions_expires_at_idx" ON "sessions" USING btree ("expires_at");--> statement-breakpoint
-CREATE INDEX "survey_responses_school_id_idx" ON "survey_responses" USING btree ("school_id");--> statement-breakpoint
-CREATE INDEX "survey_responses_partner_id_idx" ON "survey_responses" USING btree ("partner_id");--> statement-breakpoint
-CREATE INDEX "survey_responses_district_id_idx" ON "survey_responses" USING btree ("district_id");--> statement-breakpoint
-CREATE INDEX "survey_responses_submitted_by_idx" ON "survey_responses" USING btree ("submitted_by");--> statement-breakpoint
-CREATE INDEX "survey_responses_submitted_at_idx" ON "survey_responses" USING btree ("submitted_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "survey_responses_unique_id_idx" ON "survey_responses" USING btree ("survey_unique_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "users_email_idx" ON "users" USING btree ("email");--> statement-breakpoint
-CREATE INDEX "users_partner_id_idx" ON "users" USING btree ("partner_id");--> statement-breakpoint
-CREATE INDEX "users_role_idx" ON "users" USING btree ("role");
+
+CREATE INDEX IF NOT EXISTS "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "audit_logs_entity_idx" ON "audit_logs" USING btree ("entity_type","entity_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "audit_logs_created_at_idx" ON "audit_logs" USING btree ("created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "districts_code_idx" ON "districts" USING btree ("code");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "districts_partner_id_idx" ON "districts" USING btree ("partner_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "districts_state_idx" ON "districts" USING btree ("state");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "partners_code_idx" ON "partners" USING btree ("code");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "schools_district_id_idx" ON "schools" USING btree ("district_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "schools_partner_id_idx" ON "schools" USING btree ("partner_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "schools_is_selected_idx" ON "schools" USING btree ("is_selected_for_survey");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "schools_code_idx" ON "schools" USING btree ("code");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "sessions_user_id_idx" ON "sessions" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "sessions_token_idx" ON "sessions" USING btree ("token");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "sessions_expires_at_idx" ON "sessions" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "survey_responses_school_id_idx" ON "survey_responses" USING btree ("school_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "survey_responses_partner_id_idx" ON "survey_responses" USING btree ("partner_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "survey_responses_district_id_idx" ON "survey_responses" USING btree ("district_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "survey_responses_submitted_by_idx" ON "survey_responses" USING btree ("submitted_by");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "survey_responses_submitted_at_idx" ON "survey_responses" USING btree ("submitted_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "survey_responses_unique_id_idx" ON "survey_responses" USING btree ("survey_unique_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "users_email_idx" ON "users" USING btree ("email");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "users_partner_id_idx" ON "users" USING btree ("partner_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "users_role_idx" ON "users" USING btree ("role");--> statement-breakpoint

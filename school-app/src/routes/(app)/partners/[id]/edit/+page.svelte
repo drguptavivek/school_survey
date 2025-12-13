@@ -12,12 +12,14 @@ import { writable } from 'svelte/store';
 	export let form: ActionData;
 
 	type PartnerErrors = Partial<
-		Record<'id' | 'name' | 'code' | 'contactEmail' | 'contactPhone' | 'isActive', string[]>
+		Record<'id' | 'name' | 'code' | 'contactEmail' | 'contactPhone' | 'comments' | 'isActive', string[]>
 	>;
 
-const errors: PartnerErrors | null = form?.errors ?? (data.errors as PartnerErrors | null);
-const values: PartnerInput & { id?: string } = form?.values ?? data.values;
-const fieldErrors = writable<PartnerErrors>({});
+	const errors: PartnerErrors | null = form?.errors ?? (data.errors as PartnerErrors | null);
+	const values: PartnerInput & { id?: string } = (form?.values ?? data.values) as PartnerInput & {
+		id?: string;
+	};
+	const fieldErrors = writable<PartnerErrors>({});
 const codeSet = new Set(
 	(data.existingCodes ?? [])
 		.filter((c) => c.id !== values.id)
@@ -45,6 +47,7 @@ const codeSet = new Set(
 		code: partnerInputSchema.shape.code,
 		contactEmail: partnerInputSchema.shape.contactEmail,
 		contactPhone: partnerInputSchema.shape.contactPhone,
+		comments: partnerInputSchema.shape.comments,
 		isActive: partnerInputSchema.shape.isActive
 	};
 
@@ -218,6 +221,33 @@ const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 					</label>
 				{/snippet}
 			</Field>
+
+			<Field name="comments">
+				{#snippet children(field)}
+					<label class="block text-sm text-slate-700" for="comments">
+						Comments
+						<textarea
+							id="comments"
+							name="comments"
+							rows="3"
+							maxlength="500"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								field.handleChange((event.target as HTMLTextAreaElement).value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('comments', (event.target as HTMLTextAreaElement).value);
+							}}
+							on:blur={field.handleBlur}
+							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+							aria-invalid={field.state.meta.errors?.length ? 'true' : 'false'}
+							aria-describedby={field.state.meta.errors?.length ? 'comments-error' : undefined}
+						></textarea>
+						{#if $fieldErrors.comments?.length}
+							<p class="text-xs text-red-600 mt-1" id="comments-error">{$fieldErrors.comments[0]}</p>
+						{/if}
+					</label>
+				{/snippet}
+			</Field>
 		</div>
 
 		<Field name="isActive">
@@ -234,6 +264,7 @@ const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 							validateFieldValue('isActive', (event.target as HTMLInputElement).checked);
 						}}
 						class="rounded border-slate-300"
+						tabindex="0"
 					/>
 					Active
 				</label>
@@ -244,12 +275,14 @@ const validateFieldValue = (key: keyof PartnerInput, value: unknown) => {
 			<a
 				href="/partners"
 				class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
+				tabindex="0"
 			>
 				Back
 			</a>
 			<button
 				type="submit"
 				class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700"
+				tabindex="0"
 			>
 				Save changes
 			</button>

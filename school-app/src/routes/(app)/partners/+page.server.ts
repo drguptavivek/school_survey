@@ -15,6 +15,7 @@ const getPartners = async (search?: string) => {
 			contactEmail: partners.contactEmail,
 			contactPhone: partners.contactPhone,
 			isActive: partners.isActive,
+			comments: partners.comments,
 			districtCount: sql<number>`count(${districts.id})`
 		})
 		.from(partners)

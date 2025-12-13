@@ -108,6 +108,7 @@ export const partners = pgTable(
 		contactEmail: varchar('contact_email', { length: 255 }),
 		contactPhone: varchar('contact_phone', { length: 50 }),
 		isActive: boolean('is_active').default(true).notNull(),
+		comments: text('comments'),
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
 		createdBy: uuid('created_by')

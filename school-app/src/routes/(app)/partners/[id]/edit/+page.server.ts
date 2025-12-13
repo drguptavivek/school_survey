@@ -28,12 +28,16 @@ export const load: PageServerLoad = async (event) => {
 		throw error(404, 'Partner not found');
 	}
 
-	const existingCodes = await db.select({ id: partners.id, code: partners.code }).from(partners);
+		const existingCodes = await db.select({ id: partners.id, code: partners.code }).from(partners);
 
 	const values: PartnerInput & { id?: string } = {
-		...record[0],
+		id: record[0].id,
+		name: record[0].name,
+		code: record[0].code,
 		contactEmail: record[0].contactEmail ?? '',
-		contactPhone: record[0].contactPhone ?? ''
+		contactPhone: record[0].contactPhone ?? '',
+		comments: (record[0] as { comments?: string | null }).comments ?? '',
+		isActive: record[0].isActive
 	};
 
 	return {
@@ -75,6 +79,7 @@ export const actions: Actions = {
 		}
 
 		const { id, name, code, contactEmail, contactPhone, isActive } = parsed.data;
+		const { comments } = parsed.data;
 
 		const existing = await db
 			.select({
@@ -83,7 +88,8 @@ export const actions: Actions = {
 				code: partners.code,
 				contactEmail: partners.contactEmail,
 				contactPhone: partners.contactPhone,
-				isActive: partners.isActive
+				isActive: partners.isActive,
+				comments: partners.comments
 			})
 			.from(partners)
 			.where(eq(partners.id, id))
@@ -114,6 +120,7 @@ export const actions: Actions = {
 				contactEmail,
 				contactPhone,
 				isActive,
+				comments,
 				updatedAt: new Date()
 			})
 			.where(eq(partners.id, id))

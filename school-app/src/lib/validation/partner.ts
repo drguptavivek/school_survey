@@ -41,6 +41,13 @@ export const partnerInputSchema = z.object({
 		.optional()
 		.or(z.literal(''))
 		.transform((v) => (v ? v : null)),
+	comments: z
+		.string()
+		.trim()
+		.max(500, 'Comments too long')
+		.optional()
+		.or(z.literal(''))
+		.transform((v) => (v ? v : null)),
 	isActive: booleanString
 });
 

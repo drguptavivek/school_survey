@@ -12,6 +12,7 @@ const defaults: PartnerInput = {
 	code: '',
 	contactEmail: null,
 	contactPhone: null,
+	comments: null,
 	isActive: true
 };
 
@@ -70,6 +71,7 @@ export const actions: Actions = {
 			contactEmail,
 			contactPhone,
 			isActive,
+			comments: parsed.data.comments,
 			createdBy: event.locals.user?.id ?? null
 		}).returning({ id: partners.id });
 

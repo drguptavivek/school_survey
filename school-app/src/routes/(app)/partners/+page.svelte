@@ -71,6 +71,7 @@
 						<th class="py-2 pr-3">Name</th>
 						<th class="py-2 pr-3">Code</th>
 						<th class="py-2 pr-3">Contact</th>
+						<th class="py-2 pr-3">Comments</th>
 						<th class="py-2 pr-3">Districts</th>
 						<th class="py-2 pr-3">Status</th>
 						<th class="py-2 pr-3 text-right">Actions</th>
@@ -87,6 +88,9 @@
 							<td class="py-2 pr-3 text-slate-700">
 								<div>{partner.contactEmail ?? '—'}</div>
 								<div class="text-xs text-slate-500">{partner.contactPhone ?? ''}</div>
+							</td>
+							<td class="py-2 pr-3 text-slate-700 max-w-xs">
+								<div class="line-clamp-2 text-xs text-slate-600">{partner.comments ?? '—'}</div>
 							</td>
 							<td class="py-2 pr-3 text-slate-700">
 								<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
