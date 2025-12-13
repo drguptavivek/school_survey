@@ -1,148 +1,111 @@
 <script lang="ts">
-	type District = {
-		code: string;
-		name: string;
-		state: string;
-		partnerId?: string;
-		status: 'active' | 'inactive';
-	};
+	import type { PageData } from './$types';
 
-	let filter = '';
-	let showCreate = false;
+	export let data: PageData;
 
-	let districts: District[] = [
-		{ code: 'D01', name: 'Northville', state: 'State A', partnerId: 'p-001', status: 'active' },
-		{ code: 'D02', name: 'Riverbend', state: 'State A', partnerId: 'p-001', status: 'active' },
-		{ code: 'D03', name: 'Lakeside', state: 'State B', partnerId: 'p-002', status: 'active' }
-	];
+	let search = data.search ?? '';
+	let searchForm: HTMLFormElement | null = null;
 
-	const filteredDistricts = () =>
-		districts.filter(
-			(d) =>
-				d.name.toLowerCase().includes(filter.toLowerCase()) ||
-				d.code.toLowerCase().includes(filter.toLowerCase()) ||
-				d.state.toLowerCase().includes(filter.toLowerCase())
-		);
-
-	const addDistrict = (event: SubmitEvent) => {
-		event.preventDefault();
-		const form = event.target as HTMLFormElement;
-		const formData = new FormData(form);
-
-		const code = formData.get('code')?.toString().trim().toUpperCase();
-		const name = formData.get('name')?.toString().trim();
-		const state = formData.get('state')?.toString().trim();
-
-		if (!code || !name || !state) return;
-
-		districts = [
-			...districts,
-			{
-				code,
-				name,
-				state,
-				status: 'active'
-			}
-		];
-
-		form.reset();
-		showCreate = false;
+	const clearSearch = () => {
+		search = '';
+		searchForm?.reset();
+		searchForm?.requestSubmit();
 	};
 </script>
 
-<div class="space-y-6">
+<div class="space-y-4">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div>
-			<h1 class="text-2xl font-bold text-slate-900">Districts</h1>
-			<p class="text-sm text-slate-600">Manage district records and their active status.</p>
+			<p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Districts</p>
+			<h1 class="text-2xl font-bold text-slate-900">Manage districts</h1>
+			<p class="text-sm text-slate-600">View district records; add new districts from the add page.</p>
 		</div>
-		<button
-			class="rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-800"
-			on:click={() => (showCreate = !showCreate)}
-		>
-			{showCreate ? 'Cancel' : 'Add District'}
-		</button>
+		<div class="flex items-center gap-2">
+			<form method="GET" action="/districts" class="flex items-center gap-2" bind:this={searchForm}>
+				<label class="sr-only" for="district-search">Search districts</label>
+				<input
+					id="district-search"
+					type="search"
+					name="q"
+					placeholder="Search by name, code, state, partner"
+					class="w-64 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+					bind:value={search}
+					on:input={(event) => {
+						const target = event.target as HTMLInputElement;
+						search = target.value;
+					}}
+					aria-label="Search districts by name, code, state, or partner"
+				/>
+				<button
+					class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300"
+					type="submit"
+				>
+					Search
+				</button>
+				<button
+					type="button"
+					class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 hover:border-slate-300"
+					on:click={clearSearch}
+				>
+					Clear
+				</button>
+			</form>
+			<a
+				class="rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-800"
+				href="/districts/add"
+			>
+				Add District
+			</a>
+		</div>
 	</div>
 
-	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-		<div class="flex flex-wrap items-center gap-3">
-			<input
-				type="search"
-				placeholder="Search districts..."
-				class="w-full max-w-sm rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-				bind:value={filter}
-			/>
-			<div class="text-sm text-slate-500">Total: {districts.length}</div>
+	<div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+		<div class="flex items-center justify-between">
+			<h2 class="text-lg font-semibold text-slate-900">District list</h2>
+			<span class="text-xs text-slate-500">Total: {data.districts.length}</span>
 		</div>
-
-		{#if showCreate}
-			<form class="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4" on:submit={addDistrict}>
-				<div class="grid gap-3 sm:grid-cols-3">
-					<label class="text-sm text-slate-700">
-						Code
-						<input
-							name="code"
-							required
-							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100 uppercase"
-						/>
-					</label>
-					<label class="text-sm text-slate-700">
-						Name
-						<input
-							name="name"
-							required
-							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-						/>
-					</label>
-					<label class="text-sm text-slate-700">
-						State
-						<input
-							name="state"
-							required
-							class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-						/>
-					</label>
-				</div>
-				<div class="flex justify-end">
-					<button
-						type="submit"
-						class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700"
-					>
-						Save district
-					</button>
-				</div>
-			</form>
-		{/if}
-
-		<div class="mt-6 divide-y divide-slate-200 rounded-xl border border-slate-200">
-			{#each filteredDistricts() as district}
-				<div class="grid gap-3 p-4 sm:grid-cols-[1fr,1fr,1fr,0.8fr] sm:items-center">
-					<div>
-						<p class="text-sm font-semibold text-slate-900">{district.name}</p>
-						<p class="text-xs text-slate-500">Code: {district.code}</p>
-					</div>
-					<div class="text-sm text-slate-700">
-						<p class="font-medium">{district.state}</p>
-						<p class="text-xs text-slate-500">State</p>
-					</div>
-					<div class="text-sm text-slate-700">
-						<p class="font-medium">Partner</p>
-						<p class="text-xs text-slate-500">{district.partnerId ?? 'Unassigned'}</p>
-					</div>
-					<div class="flex items-center gap-2">
-						<span
-							class={`rounded-full px-3 py-1 text-xs font-semibold ${
-								district.status === 'active'
-									? 'bg-emerald-100 text-emerald-700'
-									: 'bg-slate-100 text-slate-700'
-							}`}
-						>
-							{district.status}
-						</span>
-						<button class="ml-auto text-sky-700 hover:text-sky-900 text-xs font-semibold">Edit</button>
-					</div>
-				</div>
-			{/each}
+		<div class="mt-3 overflow-x-auto">
+			<table class="min-w-full text-sm">
+				<thead class="text-left text-slate-600">
+					<tr class="border-b border-slate-200">
+						<th class="py-2 pr-3">Name</th>
+						<th class="py-2 pr-3">Code</th>
+						<th class="py-2 pr-3">State/UT</th>
+						<th class="py-2 pr-3">Partner</th>
+						<th class="py-2 pr-3">Schools</th>
+						<th class="py-2 pr-3 text-right">Actions</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-slate-200">
+					{#each data.districts as district (district.id)}
+						<tr>
+							<td class="py-2 pr-3">
+								<div class="font-semibold text-slate-900">{district.name}</div>
+								<div class="text-xs text-slate-500">ID: {district.id}</div>
+							</td>
+							<td class="py-2 pr-3 text-slate-700">{district.code}</td>
+							<td class="py-2 pr-3 text-slate-700">{district.state ?? '—'}</td>
+							<td class="py-2 pr-3 text-slate-700">
+								<div class="font-medium">{district.partnerName ?? 'Unassigned'}</div>
+								<div class="text-xs text-slate-500">ID: {district.partnerId}</div>
+							</td>
+							<td class="py-2 pr-3 text-slate-700">
+								<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
+									{district.schoolCount}
+								</span>
+							</td>
+							<td class="py-2 pr-3 text-right">
+								<a
+									href={`/districts/${district.id}/edit`}
+									class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
+								>
+									Edit
+								</a>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</div>
 	</div>
 </div>

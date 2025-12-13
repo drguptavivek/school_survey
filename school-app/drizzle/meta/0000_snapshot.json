@@ -1,5 +1,5 @@
 {
-  "id": "1bcf7e8e-b203-418a-8a9d-60178b968165",
+  "id": "939168ce-c45d-4c05-a997-4e2536de4632",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -140,7 +140,8 @@
           "name": "code",
           "type": "varchar(50)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "nextval('district_code_seq')"
         },
         "partner_id": {
           "name": "partner_id",
@@ -173,6 +174,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -258,7 +265,8 @@
           "name": "code",
           "type": "varchar(50)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "nextval('partner_code_seq')"
         },
         "contact_email": {
           "name": "contact_email",
@@ -278,6 +286,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "comments": {
+          "name": "comments",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

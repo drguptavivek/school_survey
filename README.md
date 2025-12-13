@@ -229,16 +229,16 @@ docker compose exec app npm run format
 ```bash
 
 # Generate migrations
-docker compose exec app npm run db:generate
+npm run db:generate
 
 # Run migrations
-docker compose exec app npm run db:migrate
+npm run db:migrate
 
 # Open Drizzle Studio (database GUI)
-docker compose exec app npm run db:studio
+npm run db:studio
 
 # Seed database
-docker compose exec app npm run db:seed
+npm run db:seed
 ```
 
 ### Project Structure

@@ -124,12 +124,13 @@ export const districts = pgTable(
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
 		name: varchar('name', { length: 255 }).notNull(),
-		code: varchar('code', { length: 50 }).notNull().unique(),
+		code: varchar('code', { length: 50 }).notNull().unique().default(sql`nextval('district_code_seq')`),
 		partnerId: uuid('partner_id').notNull(),
 		state: varchar('state', { length: 100 }),
 		region: varchar('region', { length: 100 }),
 		createdAt: timestamp('created_at').defaultNow().notNull(),
-		updatedAt: timestamp('updated_at').defaultNow().notNull()
+		updatedAt: timestamp('updated_at').defaultNow().notNull(),
+		createdBy: uuid('created_by')
 	},
 	(table) => ({
 		codeIdx: uniqueIndex('districts_code_idx').on(table.code),
@@ -305,7 +306,12 @@ export const districtsRelations = relations(districts, ({ many, one }) => ({
 		references: [partners.id]
 	}),
 	schools: many(schools),
-	surveys: many(surveyResponses)
+	surveys: many(surveyResponses),
+	creator: one(users, {
+		fields: [districts.createdBy],
+		references: [users.id],
+		relationName: 'createdBy'
+	})
 }));
 
 export const schoolsRelations = relations(schools, ({ many, one }) => ({

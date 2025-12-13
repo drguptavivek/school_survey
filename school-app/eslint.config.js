@@ -26,16 +26,19 @@ export default defineConfig(
 			'no-undef': 'off'
 		}
 	},
-	{
-		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
+		{
+			files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 
-		languageOptions: {
-			parserOptions: {
-				projectService: true,
-				extraFileExtensions: ['.svelte'],
-				parser: ts.parser,
-				svelteConfig
+			languageOptions: {
+				parserOptions: {
+					projectService: true,
+					extraFileExtensions: ['.svelte'],
+					parser: ts.parser,
+					svelteConfig
+				}
+			},
+			rules: {
+				'svelte/no-navigation-without-resolve': 'off'
 			}
 		}
-	}
 );

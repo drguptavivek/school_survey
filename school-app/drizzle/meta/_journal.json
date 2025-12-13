@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1765612807770,
-      "tag": "0000_big_jocasta",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1765644116426,
-      "tag": "0001_mean_riptide",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1765650000000,
-      "tag": "0002_partner_code_sequence",
+      "when": 1765650006035,
+      "tag": "0000_bouncy_iron_man",
       "breakpoints": true
     }
   ]
