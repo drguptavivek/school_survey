@@ -145,12 +145,23 @@ export const schools = pgTable(
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
 		name: varchar('name', { length: 255 }).notNull(),
-		code: varchar('code', { length: 100 }),
+		code: varchar('code', { length: 100 }).notNull().unique().default(sql`nextval('school_code_seq')`),
 		districtId: uuid('district_id').notNull(),
 		partnerId: uuid('partner_id').notNull(),
 		address: text('address'),
 		principalName: varchar('principal_name', { length: 255 }),
 		contactPhone: varchar('contact_phone', { length: 50 }),
+		schoolType: schoolTypeEnum('school_type'), // govt, private, aided, other
+		areaType: areaTypeEnum('area_type'), // rural, urban
+		gpsLatitude: decimal('gps_latitude', { precision: 10, scale: 8 }),
+		gpsLongitude: decimal('gps_longitude', { precision: 11, scale: 8 }),
+		hasPrimary: boolean('has_primary').default(false).notNull(),
+		hasMiddle: boolean('has_middle').default(false).notNull(),
+		hasTenth: boolean('has_tenth').default(false).notNull(),
+		has12th: boolean('has_12th').default(false).notNull(),
+		coEdType: varchar('co_ed_type', { length: 20 }), // 'boys', 'girls', 'coed'
+		totalStudentStrength: integer('total_student_strength'),
+		comments: text('comments'),
 		isSelectedForSurvey: boolean('is_selected_for_survey').default(false).notNull(),
 		isActive: boolean('is_active').default(true).notNull(),
 		hasSurveyData: boolean('has_survey_data').default(false).notNull(),

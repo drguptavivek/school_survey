@@ -8,6 +8,20 @@
       "when": 1765650006035,
       "tag": "0000_bouncy_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1765734960000,
+      "tag": "0001_add_school_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765657768892,
+      "tag": "0002_flaky_wraith",
+      "breakpoints": true
     }
   ]
 }
