@@ -1,8 +1,10 @@
-import { hash, verify } from 'bcrypt';
+import bcrypt from 'bcrypt';
 import { db } from './db';
 import { sessions, users } from './db/schema';
 import { eq, gt } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
+
+const { hash, compare } = bcrypt;
 
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 const HASH_ROUNDS = 12;
@@ -17,8 +19,8 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * Verify a password against its hash
  */
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-	return verify(password, hash);
+export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
+	return compare(password, passwordHash);
 }
 
 /**

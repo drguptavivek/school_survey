@@ -1,3 +1,20 @@
 {
-	"/": []
+	"/(auth)": [
+		"src/routes/(auth)/+layout.server.ts"
+	],
+	"/(app)": [
+		"src/routes/(app)/+layout.server.ts"
+	],
+	"/": [],
+	"/(app)/dashboard": [
+		"src/routes/(app)/+layout.server.ts"
+	],
+	"/(auth)/login": [
+		"src/routes/(auth)/login/+page.server.ts",
+		"src/routes/(auth)/+layout.server.ts"
+	],
+	"/(auth)/logout": [
+		"src/routes/(auth)/logout/+page.server.ts",
+		"src/routes/(auth)/+layout.server.ts"
+	]
 }
