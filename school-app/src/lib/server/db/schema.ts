@@ -37,6 +37,9 @@ export const barrierEnum = pgEnum('barrier', [
 	'no_one_to_accompany',
 	'glasses_broken'
 ]);
+
+// Sequences (defined in migrations)
+// user_code_seq will be created in migration
 export const visionCauseEnum = pgEnum('vision_cause', [
 	'uncorrected_refractive_error',
 	'cataract',
@@ -66,6 +69,11 @@ export const users = pgTable(
 		name: varchar('name', { length: 255 }).notNull(),
 		role: userRoleEnum('role').notNull(),
 		partnerId: uuid('partner_id'),
+		code: varchar('code', { length: 50 }).notNull().unique().default(sql`nextval('user_code_seq')`),
+		phoneNumber: varchar('phone_number', { length: 10 }),
+		dateActiveTill: date('date_active_till'),
+		yearsOfExperience: integer('years_of_experience'),
+		temporaryPassword: varchar('temporary_password', { length: 255 }),
 		isActive: boolean('is_active').default(true).notNull(),
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -74,6 +82,7 @@ export const users = pgTable(
 	},
 	(table) => ({
 		emailIdx: uniqueIndex('users_email_idx').on(table.email),
+		codeIdx: uniqueIndex('users_code_idx').on(table.code),
 		partnerIdx: index('users_partner_id_idx').on(table.partnerId),
 		roleIdx: index('users_role_idx').on(table.role)
 	})

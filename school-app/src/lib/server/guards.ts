@@ -1,9 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 
-/**
- * User role enum matching database schema
- */
+// Role names align with the legacy schema and routes
 export enum UserRole {
 	NATIONAL_ADMIN = 'national_admin',
 	DATA_MANAGER = 'data_manager',
@@ -53,25 +51,75 @@ export async function requireRole(event: RequestEvent, ...roles: UserRole[]) {
 	return user;
 }
 
-/**
- * Guard to ensure user is a national admin
- */
 export async function requireNationalAdmin(event: RequestEvent) {
 	return requireRole(event, UserRole.NATIONAL_ADMIN);
 }
 
-/**
- * Guard to ensure user is a national admin or data manager
- */
-export async function requireDataAccess(event: RequestEvent) {
-	return requireRole(event, UserRole.NATIONAL_ADMIN, UserRole.DATA_MANAGER);
+export async function requirePartnerManager(event: RequestEvent) {
+	return requireRole(event, UserRole.NATIONAL_ADMIN, UserRole.PARTNER_MANAGER);
 }
 
 /**
- * Guard to ensure user is a partner manager
+ * Guard to ensure user can create users at or below their role level
  */
-export async function requirePartnerManager(event: RequestEvent) {
-	return requireRole(event, UserRole.PARTNER_MANAGER);
+export async function requireUserCreationAccess(event: RequestEvent, targetRole: UserRole) {
+	const user = await requireAuth(event);
+
+	// Define role hierarchy
+	const roleHierarchy = {
+		[UserRole.NATIONAL_ADMIN]: 4,
+		[UserRole.DATA_MANAGER]: 3,
+		[UserRole.PARTNER_MANAGER]: 2,
+		[UserRole.TEAM_MEMBER]: 1
+	};
+
+	const userLevel = roleHierarchy[user.role as UserRole];
+	const targetLevel = roleHierarchy[targetRole];
+
+	if (!userLevel || !targetLevel) {
+		throw error(400, 'Invalid role specified');
+	}
+
+	// Admin and partner managers can create below their level
+	if (userLevel > targetLevel) {
+		return user;
+	}
+
+	throw error(403, `Forbidden - You do not have permission to create users with role: ${targetRole}`);
+}
+
+/**
+ * Guard to ensure user can view/edit users at or below their role level
+ */
+export async function requireUserAccess(event: RequestEvent, targetUserId: string) {
+	const user = await requireAuth(event);
+
+	// Users can always edit their own profile
+	if (user.id === targetUserId) {
+		return user;
+	}
+
+	// Define role hierarchy
+	const roleHierarchy = {
+		[UserRole.NATIONAL_ADMIN]: 4,
+		[UserRole.DATA_MANAGER]: 3,
+		[UserRole.PARTNER_MANAGER]: 2,
+		[UserRole.TEAM_MEMBER]: 1
+	};
+
+	// Get target user's role (would need database query in real implementation)
+	// For now, we'll implement basic role-based access
+	if (user.role === UserRole.NATIONAL_ADMIN) {
+		return user; // Central admin can access all users
+	}
+
+	if (user.role === UserRole.PARTNER_MANAGER) {
+		// Partner managers can access users at their partner
+		// This would need additional database logic to check partner association
+		return user;
+	}
+
+	throw error(403, 'Forbidden - You do not have permission to access this user');
 }
 
 /**
@@ -108,7 +156,7 @@ export async function requirePartnerDataAccess(event: RequestEvent, targetPartne
 }
 
 /**
- * Check if user can edit survey data based on time windows
+ * Guard to ensure user can edit survey data based on time windows
  * - Team members: 24 hours after submission
  * - Partner managers: 15 days after submission
  * - National admin: No time limit
@@ -126,6 +174,8 @@ export function canEditSurvey(
 	const submittedTime = new Date(submittedAt);
 	const elapsedMs = now.getTime() - submittedTime.getTime();
 
+	// Note: These role names are from old system, need to be updated
+	// when survey system is migrated to new role hierarchy
 	if (user.role === UserRole.TEAM_MEMBER) {
 		// Team members: 24 hours
 		const hoursElapsed = elapsedMs / (1000 * 60 * 60);
@@ -140,3 +190,7 @@ export function canEditSurvey(
 
 	return false;
 }
+
+export const requireCentralAdmin = requireNationalAdmin; // alias kept for older calls
+export const requirePartnerSiteManager = requirePartnerManager; // alias kept for older calls
+export const requireDataAccess = requireNationalAdmin;

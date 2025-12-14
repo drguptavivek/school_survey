@@ -651,6 +651,195 @@ Once approved, implementation will begin with:
 4. Authentication system implementation
 5. User and partner management features
 
+## Users Route Implementation Plan
+
+### Overview
+Implement comprehensive `/users` route similar to existing `/schools` route with hierarchical role-based access control and secure temporary password generation.
+
+### User Role Hierarchy & Access Control
+
+**New Role Structure:**
+```typescript
+export enum UserRole {
+  CENTRAL_ADMIN = 'central_admin',           // Can create Partner Site Managers
+  PARTNER_SITE_MANAGER = 'partner_site_manager', // Can create Optometrist, Field Worker, Social Worker
+  OPTOMETRIST = 'optometrist',               // Can view/edit own profile
+  FIELD_WORKER = 'field_worker',             // Can view/edit own profile  
+  SOCIAL_WORKER = 'social_worker'            // Can view/edit own profile
+}
+```
+
+**Access Control Matrix:**
+| Current Role → Can Create | Central Admin | Partner Site Manager | Optometrist | Field Worker | Social Worker |
+|---------------------------|---------------|----------------------|-------------|--------------|----------------|
+| Central Admin             | ✓             | ✗                    | ✗           | ✗            | ✗              |
+| Partner Site Manager      | ✗             | ✓                    | ✓           | ✓            | ✓              |
+| Optometrist               | ✗             | ✗                    | ✗           | ✗            | ✗              |
+| Field Worker              | ✗             | ✗                    | ✗           | ✗            | ✗              |
+| Social Worker             | ✗             | ✗                    | ✗           | ✗            | ✗              |
+
+### Database Schema Changes
+
+**Migration Required:**
+1. **Update Role Enum:**
+   ```sql
+   CREATE TYPE "user_role_new" AS ENUM (
+     'central_admin', 'partner_site_manager', 'optometrist', 
+     'field_worker', 'social_worker'
+   );
+   ```
+
+2. **Add New User Fields:**
+   - `code` (varchar, auto-generated via sequence)
+   - `phone_number` (varchar, 10-digit validation)
+   - `date_active_till` (date)
+   - `years_of_experience` (integer)
+   - `temporary_password` (varchar)
+
+3. **Create Sequence:**
+   ```sql
+   CREATE SEQUENCE "user_code_seq" INCREMENT BY 1 MINVALUE 1001 START WITH 1001;
+   ```
+
+### Secure Password Generation
+
+**Library Choice:** `random-word` by sindresorhus
+- **Security:** 274,925 English words (2.7MB word list)
+- **Combinations:** 274,925³ = 20.7 trillion possible passwords
+- **Installation:** `npm install random-word`
+
+**Password Generation Function:**
+```typescript
+import randomWord from 'random-word';
+
+export function generateSecureTemporaryPassword(): string {
+  const words = [];
+  for (let i = 0; i < 3; i++) {
+    words.push(randomWord());
+  }
+  return words.join('-');
+}
+```
+
+### File Structure to Create
+
+```
+src/routes/(app)/users/
+├── +page.server.ts     # List view with role-based filtering
+├── +page.svelte        # List UI with table and search
+├── add/
+│   ├── +page.server.ts # Create form with hierarchy validation
+│   └── +page.svelte    # Create form UI
+└── [id]/
+    └── edit/
+        ├── +page.server.ts # Update form with access controls
+        └── +page.svelte    # Update form UI
+```
+
+### User Attributes & Validation
+
+**User Fields:**
+- **Name** (text, required, 2-255 chars)
+- **Phone Number** (10-digit number, required)
+- **Role** (dropdown with role options based on current user's role)
+- **Active** (Y/N toggle)
+- **Date Active Till** (date picker, dd/mm/yyyy format)
+- **Years of Experience** (number input, 0-99)
+- **Auto-generated fields:** User code, temporary password
+
+**Validation Schema (`src/lib/validation/user.ts`):**
+- Phone number: Exactly 10 digits validation
+- Date format: dd/mm/yyyy validation and conversion
+- Years experience: Positive integer (0-99)
+- Role hierarchy: Validates user can create specified role
+- Email: Unique email validation
+- Name: Required, 2-255 characters
+
+### Implementation Features
+
+**List View:**
+- Role-based filtering (show only users at/below current user's level)
+- Search by name, code, phone number, email
+- Filter by role, active status, partner
+- Pagination for large datasets
+- Sorting by name, code, created date
+
+**Create/Update Flow (Following Svelte Form Guidance):**
+1. Authentication and role validation
+2. **TanStack Form Setup:** `createForm(() => ({ defaultValues, validators: { onChange: zodAdapter(schema), onSubmit: zodAdapter(schema) }, onSubmit: () => formEl?.submit() }))`
+3. **Real-time Validation:** Per-field validation with `$fieldErrors` store, `validateFieldValue(name, value)` calls
+4. **Form Submission:** Prevent default, call `formApi.handleSubmit()`, handle redirects with `goto(result.location)`
+5. **Hidden Input Handling:** Use local reactive variables for auto-generated fields (code, temp password)
+6. **Number Input Validation:** Use `type="text"` + `inputmode="numeric"` + JavaScript filtering for phone/years
+7. **Checkbox Accessibility:** Include `tabindex="0"` for Active Y/N toggle
+8. **Duplicate Checks:** Email and phone number uniqueness validation
+9. **Auto-generation:** User code (sequence) and temporary password (random-word)
+10. **Password Hashing:** bcrypt with proper salt rounds
+11. **Database Transaction:** Drizzle ORM with proper error handling
+12. **Comprehensive Audit Logging:** `logAudit` with old/new data snapshots
+13. **Error Handling:** Server returns `{ values, errors }`, client hydrates properly
+
+**Security Measures:**
+- Cryptographically secure password generation
+- bcrypt hashing for password storage
+- Role-based access control enforcement
+- Server-side validation of all operations
+- Comprehensive audit logging
+- Input sanitization and validation
+
+### Implementation Order (Critical Svelte Gotchas Applied)
+
+1. **Database Migration** - Update user schema with new fields (remember: `db:generate` + `db:migrate`)
+2. **Install Dependencies** - Add `random-word` library
+3. **Update Role System** - Modify guards and enums for new hierarchy
+4. **Create Validation Schema** - User validation with Zod in `src/lib/validation/user.ts`
+5. **Utility Functions** - Password and code generation with proper error handling
+6. **List Page** - Basic user listing with filtering and search
+7. **Add Page** - User creation with:
+   - TanStack Form + `zodAdapter` setup
+   - Real-time validation with `$fieldErrors` store
+   - Proper hidden input handling for auto-generated fields
+   - Number input validation with `inputmode="numeric"`
+   - Checkbox accessibility with `tabindex="0"`
+   - Redirect handling with `goto()`
+8. **Edit Page** - User updates with same form patterns and access controls
+9. **Audit Logging** - Comprehensive operation tracking using `logAudit`
+10. **Testing** - Role hierarchy and security validation (tests in `src/tests/` only)
+11. **Type Generation** - Run `npm run prepare` to regenerate `.svelte-kit/types` if needed
+12. **Accessibility Review** - Verify all keyboard navigation and ARIA attributes
+
+### Integration with Existing System
+
+**Follows Existing Patterns (Critical Svelte Gotchas Applied):**
+- Same route structure as `/schools`
+- **TanStack Form + Zod validation** with `zodAdapter` for real-time feedback
+- **Shared schemas** in `src/lib/validation/user.ts` following partner pattern
+- **Proper form submission** with `formEl?.submit()` and redirect handling via `goto()`
+- **Hidden input handling** using local reactive variables (not `field.state.value`)
+- **Number input validation** using `type="text"` + `inputmode="numeric"` + JS filtering
+- **Checkbox accessibility** with `tabindex="0"` for keyboard navigation
+- **Drizzle ORM** for database operations with proper migration process
+- **Comprehensive audit logging** using `logAudit` from `src/lib/server/audit.ts`
+- **Role-based access control** via guards with hierarchical validation
+- **Error handling** with `{ values, errors }` pattern and proper hydration
+
+**Consistent with Current Architecture:**
+- Uses existing authentication system
+- Follows established validation patterns from partners implementation
+- Integrates with current audit logging system
+- Maintains same UI/UX patterns with accessibility compliance
+- Uses existing database connection and schema patterns
+- **Critical:** Tests placed in `src/tests/` (not in route folders)
+- **Critical:** Migration process includes both `db:generate` and `db:migrate` steps
+
+**SvelteKit-Specific Considerations:**
+- **Redirect handling:** Proper `use:enhance` with `goto(result.location)` for form redirects
+- **Form state management:** Re-enable fields on `failure`/`error` for retry capability
+- **Type generation:** Run `npm run prepare` if `.svelte-kit/types` becomes stale
+- **Keyboard accessibility:** Proper `role` attributes for keyboard handlers
+- **Input validation:** Client-side validation mirrors server-side constraints exactly
+
 ## Recent Updates
 - Partners management now uses Superforms + Zod for realtime validation (email/phone/length) and pre-submit code uniqueness feedback.
 - Partner add/edit flows are modal-based and persist via Drizzle with uniqueness checks against existing partner codes.
+- Added comprehensive Users route implementation plan with secure password generation and hierarchical role-based access control.

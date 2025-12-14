@@ -60,6 +60,7 @@
 		"@tanstack/svelte-form": "^1.27.3",
 		"bcrypt": "^6.0.0",
 		"dotenv": "^17.2.3",
-		"postgres": "^3.4.7"
+		"postgres": "^3.4.7",
+		"random-word": "^3.0.0"
 	}
 }
