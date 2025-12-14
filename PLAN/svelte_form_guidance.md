@@ -15,6 +15,17 @@
 - Redirects: use `redirect(303, '/partners')` after success to avoid stale form state.
 - Testing/checks: `npm run check`; manual via `npm run dev`.
 
+### Reactivity guidance (TanStack Form + Svelte)
+- Avoid using `formApi.getFieldValue('x')` directly inside Svelte markup conditions like `{#if ...}` or `{#each ...}`. It’s just a function call and does not create a reactive dependency, so the UI may not update when the field changes.
+- Prefer one of these patterns for reactive UI:
+  - **Local reactive state**: keep a local variable (e.g. `let selectedRole`) updated in the field’s `on:change` handler and during hydration; use `selectedRole` for conditional rendering.
+  - **Field state**: render conditional UI inside the relevant `<Field name="...">` snippet and use `field.state.value` (this is reactive because the snippet re-renders with field state).
+  - **Store/derived** (if you introduce one): subscribe to TanStack form state and derive values; use `$storeValue` in markup.
+- When using `use:enhance`, the page component often does not remount after submit. If you display server-returned `form` data, ensure you:
+  - call `update()` in the enhance callback, and
+  - re-hydrate `values/errors` when the `form` prop changes (e.g. `$: if (form) hydrateFromServer(form.values, form.errors)`).
+- For “start fresh” flows (e.g. “Add another …”), navigate with a query param (e.g. `?new=1`) and have `load` return a `reset` flag; then call `formApi.reset()` on the client when `reset` is true.
+
 ### Steps to build a new form (TanStack + Zod pattern)
 1) **Define schema** (`src/lib/validation/<entity>.ts`), include coercions/normalization; omit auto-generated fields from create/edit schemas.
 2) **Field helpers**: map field schemas and add any client-only checks if needed (e.g., uniqueness lists).

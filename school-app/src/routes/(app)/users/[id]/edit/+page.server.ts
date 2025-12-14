@@ -118,7 +118,7 @@ export const actions: Actions = {
 			email: formData.get('email'),
 			phoneNumber: formData.get('phoneNumber'),
 			role: formData.get('role'),
-			partnerId: lockPartner ? lockedPartnerId : formData.get('partnerId'),
+			partnerId: lockPartner ? lockedPartnerId : (formData.get('partnerId') ?? ''),
 			active: formData.get('active'),
 			dateActiveTill: formData.get('dateActiveTill'),
 			yearsOfExperience: formData.get('yearsOfExperience')
