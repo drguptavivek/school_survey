@@ -424,3 +424,18 @@ Internal use only - School Survey Application
 Email: admin@example.com
 User Code: U1003
 Temporary Password: saluters-sennight-inkwood
+
+
+Email: manager@example.com
+User Code: U1001
+Temporary Password: jaderies-sinical-embolismic
+
+
+Email: p444hs@p4.com
+User Code: U1013
+Temporary Password: thanna-comanagers-atopies
+
+
+Email: manager@example.com
+User Code: U1001
+Temporary Password: antimagnetic-britt-substitutional

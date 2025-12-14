@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { schools, districts, partners } from '$lib/server/db/schema';
-import { requireNationalAdmin } from '$lib/server/guards';
+import { requireSchoolEditAccess } from '$lib/server/guards';
 import { schoolUpdateSchema, type SchoolUpdateInput } from '$lib/validation/school';
 import { fail, redirect, error } from '@sveltejs/kit';
 import { eq, and, ilike, ne } from 'drizzle-orm';
@@ -8,9 +8,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { logAudit } from '$lib/server/audit';
 
 export const load: PageServerLoad = async (event) => {
-	await requireNationalAdmin(event);
-
 	const { id } = event.params;
+	await requireSchoolEditAccess(event, id);
 
 	// Get the school to edit
 	const school = await db
@@ -65,9 +64,8 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
 	default: async (event) => {
-		await requireNationalAdmin(event);
-
 		const { id } = event.params;
+		await requireSchoolEditAccess(event, id);
 		const formData = await event.request.formData();
 
 		// Verify school exists

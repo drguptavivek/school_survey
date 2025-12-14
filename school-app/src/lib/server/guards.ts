@@ -1,5 +1,8 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
+import { db } from '$lib/server/db';
+import { schools, users } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 
 // Role names align with the legacy schema and routes
 export enum UserRole {
@@ -104,27 +107,78 @@ export async function requireUserAccess(event: RequestEvent, targetUserId: strin
 		return user;
 	}
 
-	// Define role hierarchy
-	const roleHierarchy = {
-		[UserRole.NATIONAL_ADMIN]: 4,
-		[UserRole.DATA_MANAGER]: 3,
-		[UserRole.PARTNER_MANAGER]: 2,
-		[UserRole.TEAM_MEMBER]: 1
-	};
-
-	// Get target user's role (would need database query in real implementation)
-	// For now, we'll implement basic role-based access
-	if (user.role === UserRole.NATIONAL_ADMIN) {
-		return user; // Central admin can access all users
+	// Admin-like roles can access any user (current policy).
+	if (user.role === UserRole.NATIONAL_ADMIN || user.role === UserRole.DATA_MANAGER) {
+		return user;
 	}
 
+	// Team members cannot access other users.
+	if (user.role === UserRole.TEAM_MEMBER) {
+		throw error(403, 'Forbidden - You do not have permission to access this user');
+	}
+
+	// Partner managers can access only users in their partner.
 	if (user.role === UserRole.PARTNER_MANAGER) {
-		// Partner managers can access users at their partner
-		// This would need additional database logic to check partner association
+		if (!user.partnerId) {
+			throw error(403, 'Forbidden - User is not assigned to a partner');
+		}
+
+		const [target] = await db
+			.select({ partnerId: users.partnerId })
+			.from(users)
+			.where(eq(users.id, targetUserId))
+			.limit(1);
+
+		if (!target) {
+			throw error(404, 'User not found');
+		}
+
+		if (target.partnerId !== user.partnerId) {
+			throw error(403, 'Forbidden - You do not have permission to access this user');
+		}
+
 		return user;
 	}
 
 	throw error(403, 'Forbidden - You do not have permission to access this user');
+}
+
+/**
+ * Guard to ensure user can edit a school record.
+ * - national_admin: any school
+ * - data_manager: any school (current policy)
+ * - partner_manager: only schools in their partner
+ */
+export async function requireSchoolEditAccess(event: RequestEvent, schoolId: string) {
+	const user = await requireAuth(event);
+
+	if (user.role === UserRole.NATIONAL_ADMIN || user.role === UserRole.DATA_MANAGER) {
+		return user;
+	}
+
+	if (user.role !== UserRole.PARTNER_MANAGER) {
+		throw error(403, 'Forbidden - You do not have permission to edit schools');
+	}
+
+	if (!user.partnerId) {
+		throw error(403, 'Forbidden - User is not assigned to a partner');
+	}
+
+	const [row] = await db
+		.select({ partnerId: schools.partnerId })
+		.from(schools)
+		.where(eq(schools.id, schoolId))
+		.limit(1);
+
+	if (!row) {
+		throw error(404, 'School not found');
+	}
+
+	if (row.partnerId !== user.partnerId) {
+		throw error(403, 'Forbidden - You do not have permission to edit this school');
+	}
+
+	return user;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { schools, districts, partners } from '$lib/server/db/schema';
-import { requireNationalAdmin } from '$lib/server/guards';
+import { requireRole, UserRole } from '$lib/server/guards';
 import { schoolCreateSchema, type SchoolCreateInput } from '$lib/validation/school';
 import { fail, redirect } from '@sveltejs/kit';
 import { eq, and, ilike } from 'drizzle-orm';
@@ -28,7 +28,13 @@ const defaults: SchoolCreateInput = {
 };
 
 export const load: PageServerLoad = async (event) => {
-	await requireNationalAdmin(event);
+	const currentUser = await requireRole(event, UserRole.NATIONAL_ADMIN, UserRole.DATA_MANAGER, UserRole.PARTNER_MANAGER);
+	const lockPartner = currentUser.role === 'partner_manager';
+	const lockedPartnerId = lockPartner ? currentUser.partnerId : null;
+
+	if (lockPartner && !lockedPartnerId) {
+		return fail(400, { message: 'Partner Manager must be assigned to a partner before creating schools.' });
+	}
 
 	// Get all districts
 	const districtsList = await db
@@ -41,24 +47,29 @@ export const load: PageServerLoad = async (event) => {
 		})
 		.from(districts)
 		.leftJoin(partners, eq(districts.partnerId, partners.id))
+		.where(lockPartner ? eq(districts.partnerId, lockedPartnerId!) : undefined)
 		.orderBy(districts.name);
 
 	return {
-		values: defaults,
+		values: { ...defaults, partnerId: lockedPartnerId ?? defaults.partnerId },
 		errors: null,
-		districts: districtsList
+		districts: districtsList,
+		lockPartner,
+		lockedPartnerId
 	};
 };
 
 export const actions: Actions = {
 	default: async (event) => {
-		await requireNationalAdmin(event);
+		const currentUser = await requireRole(event, UserRole.NATIONAL_ADMIN, UserRole.DATA_MANAGER, UserRole.PARTNER_MANAGER);
+		const lockPartner = currentUser.role === 'partner_manager';
+		const lockedPartnerId = lockPartner ? currentUser.partnerId : null;
 
 		const formData = await event.request.formData();
 		const payload = {
 			name: formData.get('name'),
 			districtId: formData.get('districtId'),
-			partnerId: formData.get('partnerId'),
+			partnerId: lockPartner ? lockedPartnerId : formData.get('partnerId'),
 			address: formData.get('address'),
 			principalName: formData.get('principalName'),
 			contactPhone: formData.get('contactPhone'),
@@ -94,6 +105,7 @@ export const actions: Actions = {
 				})
 				.from(districts)
 				.leftJoin(partners, eq(districts.partnerId, partners.id))
+				.where(lockPartner ? eq(districts.partnerId, lockedPartnerId!) : undefined)
 				.orderBy(districts.name);
 
 			return fail(400, {
@@ -114,14 +126,47 @@ export const actions: Actions = {
 					has12th: payload.has12th ?? false,
 					coEdType: String(payload.coEdType ?? ''),
 					totalStudentStrength: String(payload.totalStudentStrength ?? ''),
-					comments: String(payload.comments ?? '')
-				},
+						comments: String(payload.comments ?? '')
+					},
 				errors: parsed.error.flatten().fieldErrors,
-				districts: districtsList
+				districts: districtsList,
+				lockPartner,
+				lockedPartnerId
 			});
 		}
 
 		const { name, districtId, partnerId, address, principalName, contactPhone, schoolType, areaType, gpsLatitude, gpsLongitude, hasPrimary, hasMiddle, hasTenth, has12th, coEdType, totalStudentStrength, comments } = parsed.data;
+
+		// Enforce partner scoping for Partner Manager (district must belong to their partner)
+		if (lockPartner && lockedPartnerId) {
+			const [districtRow] = await db
+				.select({ partnerId: districts.partnerId })
+				.from(districts)
+				.where(eq(districts.id, districtId))
+				.limit(1);
+			if (!districtRow || districtRow.partnerId !== lockedPartnerId) {
+				const districtsList = await db
+					.select({
+						id: districts.id,
+						name: districts.name,
+						state: districts.state,
+						partnerId: districts.partnerId,
+						partnerName: partners.name
+					})
+					.from(districts)
+					.leftJoin(partners, eq(districts.partnerId, partners.id))
+					.where(eq(districts.partnerId, lockedPartnerId))
+					.orderBy(districts.name);
+
+				return fail(403, {
+					values: { ...parsed.data, partnerId: lockedPartnerId },
+					errors: { districtId: ['You can only create schools within your partner districts'] },
+					districts: districtsList,
+					lockPartner,
+					lockedPartnerId
+				});
+			}
+		}
 
 		// Check for duplicate school (case-insensitive) in the same district
 		const normalizedName = name.trim().toUpperCase();

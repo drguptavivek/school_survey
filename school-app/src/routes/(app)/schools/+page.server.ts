@@ -1,10 +1,16 @@
 import { db } from '$lib/server/db';
 import { schools, districts, partners } from '$lib/server/db/schema';
-import { requireNationalAdmin } from '$lib/server/guards';
+import { requireAuth } from '$lib/server/guards';
+import { error } from '@sveltejs/kit';
 import { eq, ilike, or, and } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
-const getSchools = async (search?: string, district?: string, state?: string) => {
+const getSchools = async (
+	search: string | undefined,
+	district: string | undefined,
+	state: string | undefined,
+	partnerId: string | null
+) => {
 	const term = search?.trim();
 
 	const rows = await db
@@ -23,7 +29,7 @@ const getSchools = async (search?: string, district?: string, state?: string) =>
 		.leftJoin(districts, eq(schools.districtId, districts.id))
 		.leftJoin(partners, eq(schools.partnerId, partners.id))
 		.where(
-			term || district || state
+			term || district || state || partnerId
 				? and(
 						term
 							? or(
@@ -35,7 +41,8 @@ const getSchools = async (search?: string, district?: string, state?: string) =>
 							  )
 							: undefined,
 						district ? eq(schools.districtId, district) : undefined,
-						state ? eq(districts.state, state) : undefined
+						state ? eq(districts.state, state) : undefined,
+						partnerId ? eq(schools.partnerId, partnerId) : undefined
 				  )
 				: undefined
 		)
@@ -45,13 +52,20 @@ const getSchools = async (search?: string, district?: string, state?: string) =>
 };
 
 export const load: PageServerLoad = async (event) => {
-	await requireNationalAdmin(event);
+	const currentUser = await requireAuth(event);
+
+	// Partner-scoped roles must belong to a partner.
+	if ((currentUser.role === 'partner_manager' || currentUser.role === 'team_member') && !currentUser.partnerId) {
+		throw error(403, 'Forbidden - User is not assigned to a partner');
+	}
 
 	const search = event.url.searchParams.get('q') ?? undefined;
 	const district = event.url.searchParams.get('district') ?? undefined;
 	const state = event.url.searchParams.get('state') ?? undefined;
 
-	const schoolsList = await getSchools(search, district, state);
+	const partnerScopeId =
+		currentUser.role === 'partner_manager' || currentUser.role === 'team_member' ? currentUser.partnerId : null;
+	const schoolsList = await getSchools(search, district, state, partnerScopeId);
 
 	// Get unique states for filter dropdown
 	const statesList = await db
@@ -59,6 +73,7 @@ export const load: PageServerLoad = async (event) => {
 			state: districts.state
 		})
 		.from(districts)
+		.where(partnerScopeId ? eq(districts.partnerId, partnerScopeId) : undefined)
 		.orderBy(districts.state);
 
 	// Get districts for filter dropdown
@@ -69,6 +84,7 @@ export const load: PageServerLoad = async (event) => {
 			state: districts.state
 		})
 		.from(districts)
+		.where(partnerScopeId ? eq(districts.partnerId, partnerScopeId) : undefined)
 		.orderBy(districts.name);
 
 	return {

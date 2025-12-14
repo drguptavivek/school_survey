@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import { db } from './db';
 import { sessions, users } from './db/schema';
-import { eq, gt } from 'drizzle-orm';
+import { eq, gt, ilike, or } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 
 const { hash, compare } = bcrypt;
@@ -117,13 +117,30 @@ export async function cleanupExpiredSessions(): Promise<number> {
 }
 
 /**
- * Authenticate user with email and password
+ * Authenticate user with email OR user code and password
  */
-export async function authenticateUser(email: string, password: string) {
+export async function authenticateUser(identifier: string, password: string) {
+	const trimmed = identifier.trim();
+	const isEmail = trimmed.includes('@');
+	const email = isEmail ? trimmed.toLowerCase() : null;
+	const code = !isEmail ? trimmed.toUpperCase() : null;
+	const codeAlt = code
+		? code.startsWith('U')
+			? code.slice(1)
+			: `U${code}`
+		: null;
+
+	const codeConditions = !isEmail
+		? [
+				ilike(users.code, code!),
+				...(codeAlt ? [ilike(users.code, codeAlt)] : [])
+			]
+		: [];
+
 	const [user] = await db
 		.select()
 		.from(users)
-		.where(eq(users.email, email.toLowerCase()))
+		.where(isEmail ? eq(users.email, email!) : or(...codeConditions))
 		.limit(1);
 
 	if (!user || !user.isActive) {

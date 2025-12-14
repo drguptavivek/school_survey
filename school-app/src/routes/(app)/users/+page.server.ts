@@ -1,10 +1,16 @@
 import { db } from '$lib/server/db';
 import { users, partners } from '$lib/server/db/schema';
-import { requireCentralAdmin } from '$lib/server/guards';
+import { requireAuth } from '$lib/server/guards';
+import { error } from '@sveltejs/kit';
 import { eq, ilike, or, and } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
-const getUsers = async (search?: string, role?: string, active?: string) => {
+const getUsers = async (
+	search: string | undefined,
+	role: string | undefined,
+	active: string | undefined,
+	partnerId: string | null
+) => {
 	const term = search?.trim();
 
 	try {
@@ -24,7 +30,7 @@ const getUsers = async (search?: string, role?: string, active?: string) => {
 			.from(users)
 			.leftJoin(partners, eq(users.partnerId, partners.id))
 			.where(
-				term || role || active
+				term || role || active || partnerId
 					? and(
 							term
 								? or(
@@ -32,10 +38,11 @@ const getUsers = async (search?: string, role?: string, active?: string) => {
 										ilike(users.email, `%${term}%`),
 										ilike(users.code, `%${term}%`),
 										ilike(users.phoneNumber, `%${term}%`)
-								  )
+							  )
 								: undefined,
 							role ? eq(users.role, role) : undefined,
-							active ? eq(users.isActive, active === 'Y') : undefined
+							active ? eq(users.isActive, active === 'Y') : undefined,
+							partnerId ? eq(users.partnerId, partnerId) : undefined
 					  )
 					: undefined
 			)
@@ -50,13 +57,21 @@ const getUsers = async (search?: string, role?: string, active?: string) => {
 };
 
 export const load: PageServerLoad = async (event) => {
-	await requireCentralAdmin(event);
+	const currentUser = await requireAuth(event);
+
+	// Partner-scoped roles must belong to a partner.
+	if ((currentUser.role === 'partner_manager' || currentUser.role === 'team_member') && !currentUser.partnerId) {
+		throw error(403, 'Forbidden - User is not assigned to a partner');
+	}
 
 	const search = event.url.searchParams.get('q') ?? undefined;
 	const role = event.url.searchParams.get('role') ?? undefined;
 	const active = event.url.searchParams.get('active') ?? undefined;
 
-	const usersList = await getUsers(search, role, active);
+	// Partner-scoped roles can only see users belonging to their partner.
+	const partnerScopeId =
+		currentUser.role === 'partner_manager' || currentUser.role === 'team_member' ? currentUser.partnerId : null;
+	const usersList = await getUsers(search, role, active, partnerScopeId);
 
 	// Get unique roles for filter dropdown
 	const rolesList = [

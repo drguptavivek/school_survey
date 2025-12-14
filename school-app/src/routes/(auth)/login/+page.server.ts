@@ -18,21 +18,23 @@ export const actions: Actions = {
 	default: async (event) => {
 		try {
 			const formData = await event.request.formData();
-			const email = formData.get('email')?.toString().trim();
+			const identifier = formData.get('email')?.toString().trim();
 			const password = formData.get('password')?.toString();
 
-			console.log('[LOGIN] Attempting login for email:', email);
+			console.log('[LOGIN] Attempting login for identifier:', identifier);
 
 			// Validate input
-			if (!email || !password) {
+			if (!identifier || !password) {
 				return fail(400, {
-					error: 'Email and password are required'
+					error: 'Email/User Code and password are required'
 				});
 			}
 
-			if (!email.includes('@')) {
+			const looksLikeEmail = identifier.includes('@');
+			const looksLikeCode = /^U\d+$/i.test(identifier);
+			if (!looksLikeEmail && !looksLikeCode) {
 				return fail(400, {
-					error: 'Invalid email address'
+					error: 'Enter a valid email address or user code (e.g. U1008)'
 				});
 			}
 
@@ -44,12 +46,12 @@ export const actions: Actions = {
 
 			// Authenticate user
 			console.log('[LOGIN] Authenticating user...');
-			const user = await authenticateUser(email, password);
+			const user = await authenticateUser(identifier, password);
 			console.log('[LOGIN] Auth result:', user ? 'success' : 'failed');
 
 			if (!user) {
 				return fail(401, {
-					error: 'Invalid email or password'
+					error: 'Invalid email/user code or password'
 				});
 			}
 
