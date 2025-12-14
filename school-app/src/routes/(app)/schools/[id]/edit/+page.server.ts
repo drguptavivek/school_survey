@@ -73,12 +73,12 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	default: async (event) => {
 		const { id } = event.params;
-		await requireSchoolEditAccess(event, id);
+		const user = await requireSchoolEditAccess(event, id);
 		const formData = await event.request.formData();
 
-		// Verify school exists
+		// Verify school exists and get current partner
 		const existingSchool = await db
-			.select({ id: schools.id })
+			.select({ id: schools.id, partnerId: schools.partnerId })
 			.from(schools)
 			.where(eq(schools.id, id))
 			.limit(1);
@@ -129,6 +129,45 @@ export const actions: Actions = {
 		}
 
 		const { name, districtId, partnerId, address, principalName, contactPhone } = parsed.data;
+
+		// For Partner Managers: Verify the new district belongs to their partner
+		if (user.role === 'partner_manager' && user.partnerId) {
+			const districtRow = await db
+				.select({ partnerId: districts.partnerId })
+				.from(districts)
+				.where(eq(districts.id, districtId))
+				.limit(1);
+
+			if (!districtRow || districtRow[0].partnerId !== user.partnerId) {
+				const districtsList = await db
+					.select({
+						id: districts.id,
+						name: districts.name,
+						state: districts.state,
+						partnerId: districts.partnerId,
+						partnerName: partners.name
+					})
+					.from(districts)
+					.leftJoin(partners, eq(districts.partnerId, partners.id))
+					.orderBy(districts.name);
+
+				return fail(403, {
+					values: {
+						id: String(payload.id),
+						name: String(payload.name ?? ''),
+						districtId: String(payload.districtId ?? ''),
+						partnerId: String(payload.partnerId ?? ''),
+						address: String(payload.address ?? ''),
+						principalName: String(payload.principalName ?? ''),
+						contactPhone: String(payload.contactPhone ?? '')
+					},
+					errors: {
+						districtId: ['You can only edit schools within your partner districts']
+					},
+					districts: districtsList
+				});
+			}
+		}
 
 		// Check for duplicate school (case-insensitive) in the same district, excluding current school
 		const normalizedName = name.trim().toUpperCase();

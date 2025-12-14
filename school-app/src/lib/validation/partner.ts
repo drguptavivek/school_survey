@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const phoneRegex = /^[0-9+()\-\s]{6,20}$/;
+// Phone: Optional partner phone field, allows +, -, (), and spaces
+// Partner phones are optional; when provided, they must have at least 10 digits
+const phoneRegex = /^[0-9+()\-\s]{10,20}$/;
 
 const booleanString = z
 	.union([z.string(), z.boolean()])
@@ -31,7 +33,7 @@ const partnerBaseSchema = z.object({
 	contactPhone: z
 		.string()
 		.trim()
-		.regex(phoneRegex, 'Phone must be 6-20 digits/symbols')
+		.regex(phoneRegex, 'Phone must be 10-20 characters, allowing digits, +, -, (), and spaces')
 		.optional()
 		.or(z.literal(''))
 		.transform((v) => (v ? v : null)),

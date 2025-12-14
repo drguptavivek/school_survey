@@ -29,7 +29,7 @@ const schoolBaseSchema = z.object({
 	contactPhone: z
 		.string()
 		.trim()
-		.max(50, 'Contact phone is too long')
+		.max(20, 'Contact phone is too long')
 		.optional()
 		.or(z.literal(''))
 		.refine(
@@ -76,10 +76,26 @@ const schoolBaseSchema = z.object({
 			},
 			{ message: 'Longitude must be between -180 and 180' }
 		),
-	hasPrimary: z.boolean().optional().default(false),
-	hasMiddle: z.boolean().optional().default(false),
-	hasTenth: z.boolean().optional().default(false),
-	has12th: z.boolean().optional().default(false),
+	hasPrimary: z
+		.union([z.boolean(), z.string()])
+		.transform((v) => v === true || v === 'on' || v === 'true')
+		.optional()
+		.default(false),
+	hasMiddle: z
+		.union([z.boolean(), z.string()])
+		.transform((v) => v === true || v === 'on' || v === 'true')
+		.optional()
+		.default(false),
+	hasTenth: z
+		.union([z.boolean(), z.string()])
+		.transform((v) => v === true || v === 'on' || v === 'true')
+		.optional()
+		.default(false),
+	has12th: z
+		.union([z.boolean(), z.string()])
+		.transform((v) => v === true || v === 'on' || v === 'true')
+		.optional()
+		.default(false),
 	coEdType: z
 		.enum(['boys', 'girls', 'coed'])
 		.catch('coed')

@@ -26,6 +26,7 @@
 	const values: UserUpdateInput = (form?.values ?? data.values) as UserUpdateInput;
 	const fieldErrors = writable<UserErrors>({});
 	let selectedRole: UserUpdateInput['role'] | undefined = values?.role;
+	let selectedPartnerId: string = values?.partnerId ?? '';
 	const isSelf = Boolean(data?.isSelf);
 	function isLockedPartner() {
 		return Boolean(data.lockPartner && data.lockedPartnerId);
@@ -113,6 +114,7 @@
 	onMount(() => {
 		hydrateFromServer(values, errors);
 		if (data.lockPartner && data.lockedPartnerId) {
+			selectedPartnerId = data.lockedPartnerId;
 			formApi.setFieldValue('partnerId', data.lockedPartnerId as never, { dontValidate: true });
 		}
 	});
@@ -324,7 +326,7 @@
 						{#snippet children(field)}
 							<div>
 								{#if isLockedPartner()}
-									<input type="hidden" name="partnerId" value={data.lockedPartnerId} />
+									<input type="hidden" name="partnerId" value={selectedPartnerId} />
 								{/if}
 								<label for="partnerId" class="block text-sm font-medium text-gray-700 mb-1">
 									Partner
@@ -338,6 +340,7 @@
 									value={field.state.value ?? ''}
 									on:change={(event) => {
 										const value = (event.target as HTMLSelectElement).value;
+										selectedPartnerId = value;
 										field.handleChange(value);
 										field.setMeta((prev) => ({ ...prev, isTouched: true }));
 										validateFieldValue('partnerId', value);
