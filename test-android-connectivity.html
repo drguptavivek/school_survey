@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .pending { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background-color: #f8f9fa; padding: 10px; overflow-x: auto; }
+        .input-group { margin: 10px 0; }
+        .input-group label { display: inline-block; width: 120px; }
+        .input-group input { width: 200px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Android App API Testing</h1>
+    <p>This page simulates Android app API calls to test connectivity.</p>
+
+    <div class="input-group">
+        <label>API Base URL:</label>
+        <input type="text" id="apiBase" value="http://localhost:5174/api" />
+    </div>
+
+    <div class="input-group">
+        <label>Email:</label>
+        <input type="email" id="email" value="admin@example.com" />
+    </div>
+
+    <div class="input-group">
+        <label>Password:</label>
+        <input type="password" id="password" value="password123" />
+    </div>
+
+    <div class="input-group">
+        <label>Device ID:</label>
+        <input type="text" id="deviceId" value="android-test-001" />
+    </div>
+
+    <button onclick="testLogin()">1. Test Login</button>
+    <button onclick="testVerify()">2. Test Token Verify</button>
+    <button onclick="testSchools()">3. Test Schools API</button>
+    <button onclick="testSurveySubmit()">4. Test Survey Submit</button>
+    <button onclick="testSyncStatus()">5. Test Sync Status</button>
+    <button onclick="clearResults()">Clear Results</button>
+
+    <div id="results"></div>
+
+    <script>
+        let currentToken = '';
+
+        function addResult(title, status, message, details = '') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test ${status}`;
+
+            let content = `<h3>${title}</h3>`;
+            content += `<p><strong>Status:</strong> ${status.toUpperCase()}</p>`;
+            content += `<p><strong>Message:</strong> ${message}</p>`;
+            if (details) {
+                content += `<details><summary>Details</summary><pre>${details}</pre></details>`;
+            }
+
+            div.innerHTML = content;
+            results.appendChild(div);
+        }
+
+        function getApiUrl(endpoint) {
+            return document.getElementById('apiBase').value + endpoint;
+        }
+
+        async function testLogin() {
+            addResult('Login API', 'pending', 'Testing login endpoint...');
+
+            try {
+                const response = await fetch(getApiUrl('/auth/login'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value,
+                        deviceId: document.getElementById('deviceId').value,
+                        deviceInfo: 'Android Test Client'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    currentToken = data.deviceToken;
+                    addResult('Login API', 'success', 'Login successful!', JSON.stringify(data, null, 2));
+                } else {
+                    addResult('Login API', 'error', 'Login failed: ' + (data.error || 'Unknown error'), JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                addResult('Login API', 'error', 'Network error: ' + error.message);
+            }
+        }
+
+        async function testVerify() {
+            addResult('Token Verify', 'pending', 'Testing token verification...');
+
+            if (!currentToken) {
+                addResult('Token Verify', 'error', 'No token available. Please test login first.');
+                return;
+            }
+
+            try {
+                const response = await fetch(getApiUrl('/auth/verify'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('Token Verify', 'success', 'Token verification response', JSON.stringify(data, null, 2));
+                } else {
+                    addResult('Token Verify', 'error', 'Token verification failed: ' + (data.error || 'Unknown error'), JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                addResult('Token Verify', 'error', 'Network error: ' + error.message);
+            }
+        }
+
+        async function testSchools() {
+            addResult('Schools API', 'pending', 'Testing schools endpoint...');
+
+            if (!currentToken) {
+                addResult('Schools API', 'error', 'No token available. Please test login first.');
+                return;
+            }
+
+            try {
+                const response = await fetch(getApiUrl('/schools/by-partner'), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('Schools API', 'success', `Retrieved ${Array.isArray(data) ? data.length : 'unknown'} schools`, JSON.stringify(data, null, 2));
+                } else {
+                    addResult('Schools API', 'error', 'Schools API failed: ' + (data.error || 'Unknown error'), JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                addResult('Schools API', 'error', 'Network error: ' + error.message);
+            }
+        }
+
+        async function testSurveySubmit() {
+            addResult('Survey Submit', 'pending', 'Testing survey submission...');
+
+            if (!currentToken) {
+                addResult('Survey Submit', 'error', 'No token available. Please test login first.');
+                return;
+            }
+
+            try {
+                const surveyData = {
+                    survey_unique_id: '101-201-5-A-001',
+                    survey_date: '2024-12-14',
+                    district_id: 'test-district',
+                    area_type: 'urban',
+                    school_id: 'test-school',
+                    school_type: 'government',
+                    class: 5,
+                    section: 'A',
+                    roll_no: '001',
+                    student_name: 'Test Student',
+                    sex: 'male',
+                    age: 10,
+                    consent: 'yes',
+                    uses_distance_glasses: false,
+                    presenting_va_right_eye: '6/6',
+                    presenting_va_left_eye: '6/6',
+                    referred_for_refraction: false,
+                    spectacles_prescribed: false,
+                    referred_to_ophthalmologist: false
+                };
+
+                const response = await fetch(getApiUrl('/surveys/submit'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(surveyData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('Survey Submit', 'success', 'Survey submitted successfully!', JSON.stringify(data, null, 2));
+                } else {
+                    addResult('Survey Submit', 'error', 'Survey submission failed: ' + (data.error || 'Unknown error'), JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                addResult('Survey Submit', 'error', 'Network error: ' + error.message);
+            }
+        }
+
+        async function testSyncStatus() {
+            addResult('Sync Status', 'pending', 'Testing sync status...');
+
+            if (!currentToken) {
+                addResult('Sync Status', 'error', 'No token available. Please test login first.');
+                return;
+            }
+
+            try {
+                const response = await fetch(getApiUrl('/sync/status'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        deviceId: document.getElementById('deviceId').value,
+                        deviceInfo: 'Android Test Client'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addResult('Sync Status', 'success', 'Sync status retrieved', JSON.stringify(data, null, 2));
+                } else {
+                    addResult('Sync Status', 'error', 'Sync status failed: ' + (data.error || 'Unknown error'), JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                addResult('Sync Status', 'error', 'Network error: ' + error.message);
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            currentToken = '';
+        }
+
+        // Auto-run login test on page load
+        window.onload = function() {
+            addResult('API Test Ready', 'success', 'Test interface loaded. Click buttons to test APIs.');
+        };
+    </script>
+</body>
+</html>
