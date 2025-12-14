@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { districts, partners, schools } from '$lib/server/db/schema';
 import { requireNationalAdmin } from '$lib/server/guards';
-import { eq, ilike, or, sql, and } from 'drizzle-orm';
+import { eq, ilike, or, sql, and, isNull } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const getDistricts = async (search?: string, state?: string) => {
@@ -22,21 +22,24 @@ const getDistricts = async (search?: string, state?: string) => {
 		.leftJoin(partners, eq(districts.partnerId, partners.id))
 		.leftJoin(schools, eq(districts.id, schools.districtId))
 		.where(
-			term || state
-				? and(
-						term
-							? or(
-									ilike(districts.name, `%${term}%`),
-									ilike(districts.code, `%${term}%`),
-									ilike(districts.state, `%${term}%`),
-									ilike(sql`coalesce(${partners.name}, '')`, `%${term}%`)
-							  )
-							: undefined,
-						state
-							? eq(districts.state, state)
-							: undefined
-				  )
-				: undefined
+			and(
+				isNull(districts.deletedAt),
+				term || state
+					? and(
+							term
+								? or(
+										ilike(districts.name, `%${term}%`),
+										ilike(districts.code, `%${term}%`),
+										ilike(districts.state, `%${term}%`),
+										ilike(sql`coalesce(${partners.name}, '')`, `%${term}%`)
+								  )
+								: undefined,
+							state
+								? eq(districts.state, state)
+								: undefined
+					  )
+					: undefined
+			)
 		)
 		.groupBy(districts.id, partners.name)
 		.orderBy(districts.name);

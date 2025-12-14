@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { schools, districts, partners } from '$lib/server/db/schema';
 import { requireAuth } from '$lib/server/guards';
 import { error } from '@sveltejs/kit';
-import { eq, ilike, or, and } from 'drizzle-orm';
+import { eq, ilike, or, and, isNull } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const getSchools = async (
@@ -29,22 +29,25 @@ const getSchools = async (
 		.leftJoin(districts, eq(schools.districtId, districts.id))
 		.leftJoin(partners, eq(schools.partnerId, partners.id))
 		.where(
-			term || district || state || partnerId
-				? and(
-						term
-							? or(
-									ilike(schools.name, `%${term}%`),
-									ilike(schools.code, `%${term}%`),
-									ilike(districts.name, `%${term}%`),
-									ilike(districts.state, `%${term}%`),
-									ilike(partners.name, `%${term}%`)
-							  )
-							: undefined,
-						district ? eq(schools.districtId, district) : undefined,
-						state ? eq(districts.state, state) : undefined,
-						partnerId ? eq(schools.partnerId, partnerId) : undefined
-				  )
-				: undefined
+			and(
+				isNull(schools.deletedAt),
+				term || district || state || partnerId
+					? and(
+							term
+								? or(
+										ilike(schools.name, `%${term}%`),
+										ilike(schools.code, `%${term}%`),
+										ilike(districts.name, `%${term}%`),
+										ilike(districts.state, `%${term}%`),
+										ilike(partners.name, `%${term}%`)
+								  )
+								: undefined,
+							district ? eq(schools.districtId, district) : undefined,
+							state ? eq(districts.state, state) : undefined,
+							partnerId ? eq(schools.partnerId, partnerId) : undefined
+					  )
+					: undefined
+			)
 		)
 		.orderBy(schools.name);
 

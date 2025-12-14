@@ -29,6 +29,20 @@
       "when": 1765683708221,
       "tag": "0003_bored_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1765706068379,
+      "tag": "0004_massive_wallop",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1765706276173,
+      "tag": "0005_wide_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

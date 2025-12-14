@@ -75,6 +75,7 @@ export const users = pgTable(
 		yearsOfExperience: integer('years_of_experience'),
 		temporaryPassword: varchar('temporary_password', { length: 255 }),
 		isActive: boolean('is_active').default(true).notNull(),
+		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
 		lastLoginAt: timestamp('last_login_at'),
@@ -118,6 +119,7 @@ export const partners = pgTable(
 		contactPhone: varchar('contact_phone', { length: 50 }),
 		isActive: boolean('is_active').default(true).notNull(),
 		comments: text('comments'),
+		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
 		createdBy: uuid('created_by')
@@ -137,6 +139,8 @@ export const districts = pgTable(
 		partnerId: uuid('partner_id').notNull(),
 		state: varchar('state', { length: 100 }),
 		region: varchar('region', { length: 100 }),
+		isActive: boolean('is_active').default(true).notNull(),
+		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
 		createdBy: uuid('created_by')
@@ -176,6 +180,7 @@ export const schools = pgTable(
 		hasSurveyData: boolean('has_survey_data').default(false).notNull(),
 		selectedAt: timestamp('selected_at'),
 		selectedBy: uuid('selected_by'),
+		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
 		uploadedBy: uuid('uploaded_by')

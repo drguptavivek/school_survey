@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { users, partners } from '$lib/server/db/schema';
 import { requireAuth, UserRole } from '$lib/server/guards';
 import { error } from '@sveltejs/kit';
-import { eq, ilike, or, and } from 'drizzle-orm';
+import { eq, ilike, or, and, isNull } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const getUsers = async (
@@ -30,21 +30,24 @@ const getUsers = async (
 			.from(users)
 			.leftJoin(partners, eq(users.partnerId, partners.id))
 			.where(
-				term || role || active || partnerId
-					? and(
-							term
-								? or(
-										ilike(users.name, `%${term}%`),
-										ilike(users.email, `%${term}%`),
-										ilike(users.code, `%${term}%`),
-										ilike(users.phoneNumber, `%${term}%`)
-							  )
-								: undefined,
-							role ? eq(users.role, role as UserRole) : undefined,
-							active ? eq(users.isActive, active === 'Y') : undefined,
-							partnerId ? eq(users.partnerId, partnerId) : undefined
-					  )
-					: undefined
+				and(
+					isNull(users.deletedAt),
+					term || role || active || partnerId
+						? and(
+								term
+									? or(
+											ilike(users.name, `%${term}%`),
+											ilike(users.email, `%${term}%`),
+											ilike(users.code, `%${term}%`),
+											ilike(users.phoneNumber, `%${term}%`)
+									  )
+									: undefined,
+								role ? eq(users.role, role as UserRole) : undefined,
+								active ? eq(users.isActive, active === 'Y') : undefined,
+								partnerId ? eq(users.partnerId, partnerId) : undefined
+						  )
+						: undefined
+				)
 			)
 			.orderBy(users.name);
 

@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { districts, partners } from '$lib/server/db/schema';
 import { requireNationalAdmin } from '$lib/server/guards';
-import { and, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, or, sql, isNull } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 const getPartners = async (search?: string) => {
@@ -21,13 +21,16 @@ const getPartners = async (search?: string) => {
 		.from(partners)
 		.leftJoin(districts, eq(partners.id, districts.partnerId))
 		.where(
-			term
-				? or(
-						ilike(partners.name, `%${term}%`),
-						ilike(partners.code, `%${term}%`),
-						ilike(sql`coalesce(${partners.contactEmail}, '')`, `%${term}%`)
-				  )
-				: undefined
+			and(
+				isNull(partners.deletedAt),
+				term
+					? or(
+							ilike(partners.name, `%${term}%`),
+							ilike(partners.code, `%${term}%`),
+							ilike(sql`coalesce(${partners.contactEmail}, '')`, `%${term}%`)
+					  )
+					: undefined
+			)
 		)
 		.groupBy(partners.id)
 		.orderBy(partners.name);
