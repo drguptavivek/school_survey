@@ -23,6 +23,7 @@ const getUsers = async (
 				phoneNumber: users.phoneNumber,
 				role: users.role,
 				isActive: users.isActive,
+				partnerId: users.partnerId,
 				partnerName: partners.name,
 				createdAt: users.createdAt,
 				lastLoginAt: users.lastLoginAt

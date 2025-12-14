@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { deleteItem, canDeleteItem } from '$lib/client/delete-utils';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 
 	let search = data.search ?? '';
 	let selectedState = data.state ?? '';
 	let searchForm: HTMLFormElement | null = null;
+	let deletingId: string | null = null;
 
 	const clearSearch = () => {
 		search = '';
@@ -19,6 +22,25 @@
 		searchForm?.reset();
 		searchForm?.requestSubmit();
 	};
+
+	async function handleDelete(district: any) {
+		if (!canDeleteItem(data.user.role, 'district')) {
+			alert('You do not have permission to delete districts');
+			return;
+		}
+
+		deletingId = district.id;
+
+		const result = await deleteItem('district', district.id, district.name);
+
+		if (result.success) {
+			// Reload the page
+			goto('/districts');
+		} else {
+			alert(`Error: ${result.error}\n${result.details || ''}`);
+			deletingId = null;
+		}
+	}
 </script>
 
 <div class="space-y-4">
@@ -137,12 +159,23 @@
 									</span>
 								</td>
 								<td class="py-2 pr-3 text-right">
-									<a
-										href={`/districts/${district.id}/edit`}
-										class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
-									>
-										Edit
-									</a>
+									<div class="flex items-center justify-end gap-2">
+										<a
+											href={`/districts/${district.id}/edit`}
+											class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
+										>
+											Edit
+										</a>
+										{#if canDeleteItem(data.user.role, 'district')}
+											<button
+												on:click={() => handleDelete(district)}
+												disabled={deletingId === district.id}
+												class="text-red-600 hover:text-red-900 text-xs font-semibold disabled:opacity-50"
+											>
+												{deletingId === district.id ? 'Deleting...' : 'Delete'}
+											</button>
+										{/if}
+									</div>
 								</td>
 							</tr>
 						{/each}
@@ -193,12 +226,23 @@
 									</span>
 								</td>
 								<td class="py-2 pr-3 text-right">
-									<a
-										href={`/districts/${district.id}/edit`}
-										class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
-									>
-										Edit
-									</a>
+									<div class="flex items-center justify-end gap-2">
+										<a
+											href={`/districts/${district.id}/edit`}
+											class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
+										>
+											Edit
+										</a>
+										{#if canDeleteItem(data.user.role, 'district')}
+											<button
+												on:click={() => handleDelete(district)}
+												disabled={deletingId === district.id}
+												class="text-red-600 hover:text-red-900 text-xs font-semibold disabled:opacity-50"
+											>
+												{deletingId === district.id ? 'Deleting...' : 'Delete'}
+											</button>
+										{/if}
+									</div>
 								</td>
 							</tr>
 						{/each}

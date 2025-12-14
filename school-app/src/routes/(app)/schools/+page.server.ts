@@ -18,6 +18,7 @@ const getSchools = async (
 			id: schools.id,
 			name: schools.name,
 			code: schools.code,
+			partnerId: schools.partnerId,
 			districtName: districts.name,
 			districtState: districts.state,
 			partnerName: partners.name,

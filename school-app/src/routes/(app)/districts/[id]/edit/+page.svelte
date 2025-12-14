@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { writable } from 'svelte/store';
+	import DeleteSection from '$lib/components/DeleteSection.svelte';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -215,4 +216,16 @@ const validateFieldValue = (key: keyof DistrictUpdateInput, value: unknown) => {
 			</button>
 		</div>
 	</form>
+
+	<div class="mt-6">
+		<DeleteSection
+			userRole={data.user.role}
+			itemId={data.values?.id ?? ''}
+			itemName={data.values?.name ?? 'District'}
+			itemContext="district"
+			itemPartnerId={data.values?.partnerId ?? undefined}
+			userPartnerId={data.user.partnerId ?? undefined}
+			redirectTo="/districts"
+		/>
+	</div>
 </div>

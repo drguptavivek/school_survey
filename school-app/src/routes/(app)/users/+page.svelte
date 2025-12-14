@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import QRCode from 'qrcode';
+	import { deleteItem, canDeleteItem } from '$lib/client/delete-utils';
 
 	export let data;
 
@@ -15,6 +16,7 @@
 	let resetLoading = false;
 	let resetQrDataUrl: string | null = null;
 	let resetResult: ResetResult | null = null;
+	let deletingId: string | null = null;
 
 	// Function to update URL with search parameters
 	function updateSearchParams() {
@@ -149,6 +151,25 @@
 			}
 		};
 	}
+
+	async function handleDelete(user: any) {
+		if (!canDeleteItem(data.user.role, 'user', user.partnerId ?? undefined, data.user.partnerId ?? undefined)) {
+			alert('You do not have permission to delete this user');
+			return;
+		}
+
+		deletingId = user.id;
+
+		const result = await deleteItem('user', user.id, user.name);
+
+		if (result.success) {
+			// Reload the page
+			goto('/users');
+		} else {
+			alert(`Error: ${result.error}\n${result.details || ''}`);
+			deletingId = null;
+		}
+	}
 </script>
 
 <div class="container mx-auto px-4 py-8">
@@ -251,6 +272,16 @@
 						>
 							Edit
 						</a>
+						{#if canDeleteItem(data.user.role, 'user', user.partnerId ?? undefined, data.user.partnerId ?? undefined)}
+							<button
+								type="button"
+								on:click={() => handleDelete(user)}
+								disabled={deletingId === user.id}
+								class="inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+							>
+								{deletingId === user.id ? 'Deleting...' : 'Delete'}
+							</button>
+						{/if}
 					</div>
 				</div>
 

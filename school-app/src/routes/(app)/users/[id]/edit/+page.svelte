@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ActionData, PageData } from './$types';
 	import type { UserUpdateInput } from '$lib/validation/user';
+	import type { UserRole } from '$lib/server/guards';
 	import { userUpdateSchema } from '$lib/validation/user';
 	import { zodAdapter } from '$lib/forms/zodAdapter';
 	import { createForm } from '@tanstack/svelte-form';
@@ -9,6 +10,7 @@
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { writable } from 'svelte/store';
+	import DeleteSection from '$lib/components/DeleteSection.svelte';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -530,5 +532,17 @@
 				</button>
 			</div>
 		</form>
+
+		<div class="mt-6">
+			<DeleteSection
+				userRole={data.user.role as UserRole}
+				itemId={data.values?.id ?? ''}
+				itemName={data.values?.name ?? 'User'}
+				itemContext="user"
+				itemPartnerId={data.values?.partnerId ?? undefined}
+				userPartnerId={data.user.partnerId ?? undefined}
+				redirectTo="/users"
+			/>
+		</div>
 	</div>
 </div>

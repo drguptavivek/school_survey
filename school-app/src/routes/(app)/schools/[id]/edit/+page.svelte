@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { writable } from 'svelte/store';
+	import DeleteSection from '$lib/components/DeleteSection.svelte';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -618,4 +619,16 @@
 			</button>
 		</div>
 	</form>
+
+	<div class="mt-6">
+		<DeleteSection
+			userRole={data.user.role}
+			itemId={data.values?.id ?? ''}
+			itemName={data.values?.name ?? 'School'}
+			itemContext="school"
+			itemPartnerId={data.values?.partnerId ?? undefined}
+			userPartnerId={data.user.partnerId ?? undefined}
+			redirectTo="/schools"
+		/>
+	</div>
 </div>

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { deleteItem, canDeleteItem } from '$lib/client/delete-utils';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 
@@ -7,6 +9,7 @@
 	let selectedDistrict = data.district ?? '';
 	let selectedState = data.state ?? '';
 	let searchForm: HTMLFormElement | null = null;
+	let deletingId: string | null = null;
 
 	const clearSearch = () => {
 		search = '';
@@ -22,6 +25,25 @@
 		searchForm?.reset();
 		searchForm?.requestSubmit();
 	};
+
+	async function handleDelete(school: any) {
+		if (!canDeleteItem(data.user.role, 'school', school.partnerId ?? undefined, data.user.partnerId ?? undefined)) {
+			alert('You do not have permission to delete this school');
+			return;
+		}
+
+		deletingId = school.id;
+
+		const result = await deleteItem('school', school.id, school.name);
+
+		if (result.success) {
+			// Reload the page
+			goto('/schools');
+		} else {
+			alert(`Error: ${result.error}\n${result.details || ''}`);
+			deletingId = null;
+		}
+	}
 </script>
 
 <div class="space-y-4">
@@ -169,12 +191,23 @@
 									</div>
 								</td>
 								<td class="py-2 pr-3 text-right">
-									<a
-										href={`/schools/${school.id}/edit`}
-										class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
-									>
-										Edit
-									</a>
+									<div class="flex items-center justify-end gap-2">
+										<a
+											href={`/schools/${school.id}/edit`}
+											class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
+										>
+											Edit
+										</a>
+										{#if canDeleteItem(data.user.role, 'school', school.partnerId ?? undefined, data.user.partnerId ?? undefined)}
+											<button
+												on:click={() => handleDelete(school)}
+												disabled={deletingId === school.id}
+												class="text-red-600 hover:text-red-900 text-xs font-semibold disabled:opacity-50"
+											>
+												{deletingId === school.id ? 'Deleting...' : 'Delete'}
+											</button>
+										{/if}
+									</div>
 								</td>
 							</tr>
 						{/each}

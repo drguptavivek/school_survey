@@ -1,16 +1,38 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { deleteItem, canDeleteItem } from '$lib/client/delete-utils';
+	import { goto } from '$app/navigation';
 
 	export let data: PageData;
 
 	let search = data.search ?? '';
 	let searchForm: HTMLFormElement | null = null;
+	let deletingId: string | null = null;
 
 	const clearSearch = () => {
 		search = '';
 		searchForm?.reset();
 		searchForm?.requestSubmit();
 	};
+
+	async function handleDelete(partner: any) {
+		if (!canDeleteItem(data.user.role, 'partner')) {
+			alert('You do not have permission to delete partners');
+			return;
+		}
+
+		deletingId = partner.id;
+
+		const result = await deleteItem('partner', partner.id, partner.name);
+
+		if (result.success) {
+			// Reload the page
+			goto('/partners');
+		} else {
+			alert(`Error: ${result.error}\n${result.details || ''}`);
+			deletingId = null;
+		}
+	}
 </script>
 
 <div class="space-y-4">
@@ -109,12 +131,23 @@
 								</span>
 							</td>
 							<td class="py-2 pr-3 text-right">
-								<a
-									href={`/partners/${partner.id}/edit`}
-									class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
-								>
-									Edit
-								</a>
+								<div class="flex items-center justify-end gap-2">
+									<a
+										href={`/partners/${partner.id}/edit`}
+										class="text-sky-700 hover:text-sky-900 text-xs font-semibold"
+									>
+										Edit
+									</a>
+									{#if canDeleteItem(data.user.role, 'partner')}
+										<button
+											on:click={() => handleDelete(partner)}
+											disabled={deletingId === partner.id}
+											class="text-red-600 hover:text-red-900 text-xs font-semibold disabled:opacity-50"
+										>
+											{deletingId === partner.id ? 'Deleting...' : 'Delete'}
+										</button>
+									{/if}
+								</div>
 							</td>
 						</tr>
 					{/each}
