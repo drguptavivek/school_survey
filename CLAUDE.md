@@ -216,27 +216,36 @@ Generates Svelte Playground links. Only call after user confirmation, never for 
 
 ### Documentation Files (Root Directory)
 
-1. **CONSISTENCY_GUIDE.md** (800+ lines)
-   - Complete developer reference for building consistent CRUD routes
-   - Pattern templates for database, schema, validation, forms, guards, error handling
+1. **FORMS_GUIDE.md** (600+ lines) ⭐ **START HERE FOR NEW FORMS**
+   - Complete Svelte + TanStack Form + Zod implementation guide
+   - Schema patterns, server load/action patterns, frontend component patterns
+   - Phone validation rules, boolean transforms, optional field handling
+   - Common mistakes and pitfalls with examples
+   - Full working component examples
+   - Form testing patterns
+   - **USE THIS:** When building any new form
+
+2. **CONSISTENCY_GUIDE.md** (800+ lines)
+   - Developer reference for building consistent CRUD routes
+   - Pattern templates for guards, scoping, error handling, audit logging
    - Best practices and common mistakes to avoid
    - Comprehensive checklist for new routes
-   - **USE THIS:** When implementing new CRUD routes or forms
+   - **USE THIS:** When implementing new CRUD routes (after reviewing FORMS_GUIDE.md)
 
-2. **CONSISTENCY_FIXES.md** (400+ lines)
-   - Detailed explanation of all critical fixes applied in this session
+3. **CONSISTENCY_FIXES.md** (400+ lines)
+   - Detailed explanation of critical fixes applied
    - Testing recommendations
-   - Security implications of each fix
+   - Security implications
    - **USE THIS:** To understand what was fixed and why
 
-3. **CONSISTENCY_AUDIT.md** (500+ lines)
+4. **CONSISTENCY_AUDIT.md** (500+ lines)
    - Complete analysis of consistency issues found
    - Impact assessment and priority levels
    - Before/after comparisons
    - **USE THIS:** To understand the full scope of issues addressed
 
-4. **SESSION_SUMMARY.md** (300+ lines)
-   - Complete overview of this development session
+5. **SESSION_SUMMARY.md** (300+ lines)
+   - Complete overview of development session
    - List of all files modified
    - Deployment recommendations
    - **USE THIS:** For historical context and deployment planning
@@ -279,71 +288,29 @@ if (user.role === 'partner_manager' && user.partnerId) {
 
 ---
 
-## TanStack Form + Zod Implementation Pattern
+## Svelte + TanStack Form + Zod
 
-**Setup in page component:**
-```typescript
-import { createForm } from 'felte';
-import { zodAdapter } from '@felte/validator-zod';
+**See:** `FORMS_GUIDE.md` for complete implementation guide
 
-let formEl: HTMLFormElement;
-let fieldErrors = $state<Record<string, string[]>>({});
+Quick summary:
+- **Schema:** Define in `src/lib/validation/<entity>.ts` with create/update variants
+- **Load:** Return `values`, `errors`, `partners` (for dropdowns), and UI state (`lockPartner`, `lockedPartnerId`)
+- **Action:** Re-validate with Zod, check duplicates, enforce scoping, log audit trail
+- **Frontend:** Use `<Field>` snippet pattern, local reactive variables for hidden fields, always re-hydrate on errors
 
-const { form: formApi } = createForm(() => ({
-  defaultValues: data.values || {},
-  validators: {
-    onChange: zodAdapter(partnerSchema),
-    onSubmit: zodAdapter(partnerSchema)
-  },
-  onSubmit: () => formEl?.submit() // Native form submission
-}));
-```
-
-**Field rendering with validation:**
+**Critical Pattern - Hidden Fields:**
 ```svelte
-<Field name="email">
-  {#snippet children(field)}
-    <input
-      type="email"
-      value={field.state.value ?? ''}
-      on:input={(e) => {
-        field.setValue(e.currentTarget.value);
-        validateFieldValue('email', e.currentTarget.value);
-      }}
-      on:blur={() => field.setTouched(true)}
-      aria-invalid={$fieldErrors.email ? 'true' : 'false'}
-      aria-describedby={$fieldErrors.email ? 'email-error' : undefined}
-    />
-    {#if $fieldErrors.email}
-      <span id="email-error" class="error">{$fieldErrors.email[0]}</span>
-    {/if}
-  {/snippet}
-</Field>
-```
+<!-- ❌ WRONG - uses stale field state -->
+<input type="hidden" value={field.state.value} name="partnerId" />
 
-**Hidden input fields (critical):**
-```svelte
-<!-- ❌ WRONG - uses field.state.value -->
-<input type="hidden" value={field.state.value ?? ''} name="partner_id" />
-
-<!-- ✅ CORRECT - uses local reactive variable -->
+<!-- ✅ CORRECT - uses reactive variable -->
 <script>
-  let selectedPartner = $state('');
+  let selectedPartnerId = $state(data.values?.partnerId ?? '');
 </script>
-<input type="hidden" value={selectedPartner} name="partner_id" />
+<input type="hidden" value={selectedPartnerId} name="partnerId" />
 ```
 
-**Redirect handling after form submission:**
-```svelte
-import { enhance } from '$app/forms';
-import { goto } from '$app/navigation';
-
-<form method="POST" use:enhance={({ result }) => {
-  if (result.type === 'redirect') {
-    goto(result.location);
-  }
-}}>
-```
+Refer to `FORMS_GUIDE.md` for full examples, patterns, checklist, and common pitfalls.
 
 ---
 
@@ -403,32 +370,18 @@ import { goto } from '$app/navigation';
 
 ## TanStack Form Best Practices
 
-### Validation Flow
-1. **onChange validation** - Real-time feedback as user types (via `zodAdapter`)
-2. **Mark touched** - Only show errors after user interacts with field (`field.setTouched(true)`)
-3. **Sync errors to store** - Call `validateFieldValue(name, value)` to update `$fieldErrors` store
-4. **Server-side final validation** - Server action re-validates before persisting
+**See:** `FORMS_GUIDE.md` for complete best practices and 8-step process
 
-### Shared Validation Schemas
-- Create schemas in `src/lib/validation/<entity>.ts`
-- **Include coercions** (e.g., boolean from string inputs)
-- **Omit auto-generated fields** from create/edit schemas (e.g., partner code, user code)
-- **Include constraints** (phone pattern, email max length, etc.)
-
-### Audit Logging
-- Use `logAudit()` from `src/lib/server/audit.ts` after successful create/update
-- Log old/new snapshots for change tracking
-- Example: `await logAudit(db, userId, 'partner_update', { oldData, newData })`
-
-### Building a New Form (8-step process)
-1. Define schema in `src/lib/validation/<entity>.ts`
-2. Map field schemas for client-side helpers
-3. Server load: return `values`, `errors`, and extra data for client checks
-4. Client setup: `createForm()` with zodAdapter validators
-5. Field rendering: wrap with `<Field>`, bind value, mark touched, validate on change
-6. Inline errors: display first error per field from `$fieldErrors`
-7. Submit: prevent default, call `formApi.handleSubmit()`, let server action persist
-8. Audit: record old/new data snapshots using `logAudit()`
+Quick checklist:
+- ✅ Create schemas in `src/lib/validation/<entity>.ts` with create/update variants
+- ✅ Include coercions (booleans from strings, optional→null transforms)
+- ✅ Validate on **load, action, and field change**
+- ✅ Check duplicates server-side before insert
+- ✅ Always re-validate in action (never trust client)
+- ✅ Enforce partner scoping in action, not just load
+- ✅ Log audit trail with old/new data snapshots
+- ✅ Return form state on error for recovery
+- ✅ Use `throw redirect(303, '/path')` on success
 
 ---
 
