@@ -29,21 +29,21 @@ async function seedDatabase() {
 				email: 'admin@example.com',
 				passwordHash: adminPasswordHash,
 				name: 'National Admin',
-				role: 'national_admin',
+			role: 'national_admin' as const,
 				isActive: true
 			},
 			{
 				email: 'manager@example.com',
 				passwordHash: managerPasswordHash,
 				name: 'Partner Manager',
-				role: 'partner_manager',
+			role: 'partner_manager' as const,
 				isActive: true
 			},
 			{
 				email: 'team@example.com',
 				passwordHash: teamPasswordHash,
 				name: 'Team Member',
-				role: 'team_member',
+			role: 'team_member' as const,
 				isActive: true
 			}
 		];

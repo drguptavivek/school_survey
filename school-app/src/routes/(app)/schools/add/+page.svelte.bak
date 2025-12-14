@@ -71,7 +71,7 @@
 
 	// Auto-populate partner when district is selected
 	const handleDistrictChange = (districtId: string) => {
-		const selected = data.districts?.find((d) => d.id === districtId);
+		const selected = data.districts.find((d) => d.id === districtId);
 		if (selected) {
 			selectedPartner = selected.partnerId;
 			formApi.setFieldValue('partnerId', selected.partnerId, { dontValidate: true });
@@ -190,7 +190,7 @@
 						/>
 						<div class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-slate-50 text-slate-700">
 							{#if selectedPartner}
-								{data.districts?.find((d) => d.partnerId === selectedPartner)?.partnerName || 'Loading...'}
+								{data.districts.find((d) => d.partnerId === selectedPartner)?.partnerName || 'Loading...'}
 							{:else}
 								<span class="text-slate-500">Select a district first</span>
 							{/if}
@@ -213,7 +213,7 @@
 								name="schoolType"
 								value={field.state.value ?? ''}
 								on:input={(event) => {
-									field.handleChange((event.target as HTMLSelectElement).value as any);
+									field.handleChange((event.target as HTMLSelectElement).value);
 									field.setMeta((prev) => ({ ...prev, isTouched: true }));
 									validateFieldValue('schoolType', (event.target as HTMLSelectElement).value);
 								}}
@@ -243,7 +243,7 @@
 								name="areaType"
 								value={field.state.value ?? ''}
 								on:input={(event) => {
-									field.handleChange((event.target as HTMLSelectElement).value as any);
+									field.handleChange((event.target as HTMLSelectElement).value);
 									field.setMeta((prev) => ({ ...prev, isTouched: true }));
 									validateFieldValue('areaType', (event.target as HTMLSelectElement).value);
 								}}
@@ -501,7 +501,7 @@
 								name="coEdType"
 								value={field.state.value ?? ''}
 								on:input={(event) => {
-									field.handleChange((event.target as HTMLSelectElement).value as any);
+									field.handleChange((event.target as HTMLSelectElement).value);
 									field.setMeta((prev) => ({ ...prev, isTouched: true }));
 									validateFieldValue('coEdType', (event.target as HTMLSelectElement).value);
 								}}

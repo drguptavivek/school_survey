@@ -1,6 +1,8 @@
-<script lang="ts">
+<script context="module" lang="ts">
 	export type SiteHeaderVariant = 'public' | 'app';
+</script>
 
+<script lang="ts">
 	export let variant: SiteHeaderVariant = 'public';
 	export let isLoggedIn: boolean = false;
 	export let userLabel: string = 'Guest';

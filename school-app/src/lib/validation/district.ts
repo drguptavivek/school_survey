@@ -8,12 +8,8 @@ const districtBaseSchema = z.object({
 		.min(2, 'District name is required')
 		.max(255, 'District name is too long'),
 	state: z
-		.string()
-		.trim()
-		.min(1, 'State/UT is required')
-		.refine((val) => INDIAN_STATES_UTS.includes(val), { 
-			message: 'Please select a valid Indian State/UT' 
-		}),
+		.enum(INDIAN_STATES_UTS)
+		.catch(INDIAN_STATES_UTS[0]),
 	partnerId: z
 		.string()
 		.uuid({ message: 'Please select a valid partner' })

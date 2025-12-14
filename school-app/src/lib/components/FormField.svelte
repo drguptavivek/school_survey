@@ -11,7 +11,6 @@
 	export let min: number | undefined = undefined;
 	export let rows: number | undefined = undefined;
 	export let disabled: boolean = false;
-	export let checked: boolean = false;
 
 	export let onChange: ((value: string | boolean) => void) | undefined = undefined;
 	export let onBlur: (() => void) | undefined = undefined;
@@ -41,7 +40,7 @@
 					: 'border-slate-200 focus:border-sky-400 focus:ring-2 focus:ring-sky-100'}"
 				aria-invalid={error ? 'true' : 'false'}
 				aria-describedby={error ? `${id}-error` : undefined}
-			/>
+			></textarea>
 			{#if error && touched}
 				<div class="absolute right-3 top-3">
 					<svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">

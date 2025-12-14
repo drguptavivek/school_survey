@@ -43,14 +43,12 @@ const schoolBaseSchema = z.object({
 			{ message: 'Phone number must have at least 10 digits' }
 		),
 	schoolType: z
-		.enum(['govt', 'private', 'aided', 'other'], {
-			errorMap: () => ({ message: 'Please select a valid school type' })
-		})
+		.enum(['govt', 'private', 'aided', 'other'])
+		.catch('govt')
 		.optional(),
 	areaType: z
-		.enum(['rural', 'urban'], {
-			errorMap: () => ({ message: 'Please select rural or urban' })
-		})
+		.enum(['rural', 'urban'])
+		.catch('rural')
 		.optional(),
 	gpsLatitude: z
 		.string()
@@ -83,9 +81,8 @@ const schoolBaseSchema = z.object({
 	hasTenth: z.boolean().optional().default(false),
 	has12th: z.boolean().optional().default(false),
 	coEdType: z
-		.enum(['boys', 'girls', 'coed'], {
-			errorMap: () => ({ message: 'Please select boys, girls, or coed' })
-		})
+		.enum(['boys', 'girls', 'coed'])
+		.catch('coed')
 		.optional(),
 	totalStudentStrength: z
 		.string()

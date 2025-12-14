@@ -64,12 +64,7 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	const user = userData[0];
-	const dateActiveTillIso =
-		user.dateActiveTill instanceof Date
-			? user.dateActiveTill.toISOString().split('T')[0]
-			: user.dateActiveTill
-				? String(user.dateActiveTill)
-				: '';
+	const dateActiveTillIso = user.dateActiveTill ? String(user.dateActiveTill) : '';
 
 		const roleOptions = (() => {
 			const options = getAvailableRoleOptions(currentUser.role);
@@ -169,6 +164,7 @@ export const actions: Actions = {
 						id: users.id,
 						name: users.name,
 						email: users.email,
+						code: users.code,
 						phoneNumber: users.phoneNumber,
 						role: users.role,
 						partnerId: users.partnerId,
@@ -206,7 +202,6 @@ export const actions: Actions = {
 							id: user.id,
 							name: user.name,
 							email: user.email,
-						code: user.code,
 						phoneNumber: user.phoneNumber,
 						partnerId: user.partnerId,
 						role: user.role,
@@ -261,6 +256,7 @@ export const actions: Actions = {
 						id: users.id,
 						name: users.name,
 						email: users.email,
+						code: users.code,
 						phoneNumber: users.phoneNumber,
 						role: users.role,
 						partnerId: users.partnerId,
@@ -300,7 +296,6 @@ export const actions: Actions = {
 							id: user.id,
 							name: user.name,
 							email: user.email,
-						code: user.code,
 						phoneNumber: user.phoneNumber,
 						partnerId: user.partnerId,
 						role: user.role,

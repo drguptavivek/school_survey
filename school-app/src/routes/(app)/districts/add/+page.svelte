@@ -132,7 +132,7 @@ const fetchDistrictsByState = async (state: string) => {
 							value={field.state.value ?? ''}
 							on:input={(event) => {
 								const stateValue = (event.target as HTMLSelectElement).value;
-								field.handleChange(stateValue);
+								field.handleChange(stateValue as any);
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
 								validateFieldValue('state', stateValue);
 								fetchDistrictsByState(stateValue);

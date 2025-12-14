@@ -145,7 +145,7 @@ const validateFieldValue = (key: keyof DistrictUpdateInput, value: unknown) => {
 							required
 							value={field.state.value ?? ''}
 							on:input={(event) => {
-								field.handleChange((event.target as HTMLSelectElement).value);
+								field.handleChange((event.target as HTMLSelectElement).value as any);
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
 								validateFieldValue('state', (event.target as HTMLSelectElement).value);
 							}}
@@ -176,7 +176,7 @@ const validateFieldValue = (key: keyof DistrictUpdateInput, value: unknown) => {
 							required
 							value={field.state.value ?? ''}
 							on:input={(event) => {
-								field.handleChange((event.target as HTMLSelectElement).value);
+								field.handleChange((event.target as HTMLSelectElement).value as any);
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
 								validateFieldValue('partnerId', (event.target as HTMLSelectElement).value);
 							}}

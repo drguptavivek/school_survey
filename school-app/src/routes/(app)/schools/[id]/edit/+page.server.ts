@@ -19,6 +19,10 @@ export const load: PageServerLoad = async (event) => {
 			code: schools.code,
 			districtId: schools.districtId,
 			partnerId: schools.partnerId,
+			hasPrimary: schools.hasPrimary,
+			hasMiddle: schools.hasMiddle,
+			hasTenth: schools.hasTenth,
+			has12th: schools.has12th,
 			address: schools.address,
 			principalName: schools.principalName,
 			contactPhone: schools.contactPhone
@@ -49,6 +53,10 @@ export const load: PageServerLoad = async (event) => {
 		name: school[0].name,
 		districtId: school[0].districtId,
 		partnerId: school[0].partnerId,
+		hasPrimary: school[0].hasPrimary ?? false,
+		hasMiddle: school[0].hasMiddle ?? false,
+		hasTenth: school[0].hasTenth ?? false,
+		has12th: school[0].has12th ?? false,
 		address: school[0].address || '',
 		principalName: school[0].principalName || '',
 		contactPhone: school[0].contactPhone || ''

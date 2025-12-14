@@ -81,14 +81,14 @@ export function getAvailableRoleOptions(currentUserRole: string): Array<{value: 
  * @returns {boolean} Whether creation is allowed
  */
 export function canCreateRole(currentUserRole: string, targetRole: string): boolean {
-	const allowedRoles = {
+	const allowedRoles: Record<string, string[]> = {
 		'national_admin': ['national_admin', 'partner_manager', 'data_manager', 'team_member'],
 		'partner_manager': ['team_member'],
 		'data_manager': [],
 		'team_member': []
 	};
 
-	return allowedRoles[currentUserRole as keyof typeof allowedRoles]?.includes(targetRole) || false;
+	return allowedRoles[currentUserRole]?.includes(targetRole) || false;
 }
 
 /**

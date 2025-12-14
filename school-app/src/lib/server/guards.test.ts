@@ -38,6 +38,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 import { canAssignUserRole, requireSchoolEditAccess, requireUserAccess, UserRole } from './guards';
+// @ts-ignore - __mockState is exported by the mock but not typed in the real module
 import { __mockState } from '$lib/server/db';
 
 function makeEvent(user: any) {

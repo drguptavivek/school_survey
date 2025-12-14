@@ -31,7 +31,7 @@ export const load: PageServerLoad = async (event) => {
 	const values: DistrictUpdateInput & { id?: string } = {
 		id: record[0].id,
 		name: record[0].name,
-		state: record[0].state ?? INDIAN_STATES_UTS[0],
+		state: (record[0].state ?? INDIAN_STATES_UTS[0]) as typeof INDIAN_STATES_UTS[number],
 		partnerId: record[0].partnerId
 	};
 

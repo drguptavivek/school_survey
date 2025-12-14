@@ -13,7 +13,7 @@
 				authHref: string;
 				authLabel: string;
 		  }
-		| undefined;
+		| undefined = undefined;
 
 	const titleByStatus: Record<number, string> = {
 		401: 'Please sign in',
