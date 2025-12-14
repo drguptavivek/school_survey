@@ -105,30 +105,6 @@ This document provides context for Claude Code to assist with the School Eye Hea
 
 ---
 
-## Svelte & SvelteKit Patterns Used
-
-### Form Handling
-- **TanStack Form + Zod** for real-time validation with `zodAdapter`
-- Field validation with `$fieldErrors` store
-- Form submission with `formEl?.submit()` for native form handling
-- Redirect handling: `goto(result.location)` for form action redirects
-- **Hidden input handling**: Use local reactive variables (not `field.state.value`)
-
-### Number Inputs
-- Use `type="text"` + `inputmode="numeric"` + JavaScript filtering (NOT `type="number"`)
-- Phone validation: min 10 digits in any format
-
-### Accessibility
-- Checkboxes need `tabindex="0"` for keyboard navigation
-- Proper `role` attributes for keyboard handlers
-- Input labels properly linked with `for` attributes
-
-### Form State
-- **Critical**: Native form submission requires proper state sync before submit
-- Disabled fields on submission, re-enable on `failure`/`error`
-- Local reactive variables for auto-generated fields (code, temp password)
-
----
 
 ## Current Implementation Status
 
@@ -233,29 +209,159 @@ Generates Svelte Playground links. Only call after user confirmation, never for 
 
 ---
 
-## Common Gotchas & Solutions
+## TanStack Form + Zod Implementation Pattern
 
-### Svelte Form Handling
-- **Issue**: Form state not syncing before native submission
-- **Solution**: Use local reactive variables for hidden inputs; call `formEl?.submit()` explicitly
+**Setup in page component:**
+```typescript
+import { createForm } from 'felte';
+import { zodAdapter } from '@felte/validator-zod';
 
-### Number Input Validation
-- **Issue**: `type="number"` allows letter input
-- **Solution**: Use `type="text"` + `inputmode="numeric"` + JavaScript filtering
+let formEl: HTMLFormElement;
+let fieldErrors = $state<Record<string, string[]>>({});
 
-### Checkbox Accessibility
-- **Issue**: Checkboxes not keyboard navigable
-- **Solution**: Add `tabindex="0"` to checkbox labels or wrappers
+const { form: formApi } = createForm(() => ({
+  defaultValues: data.values || {},
+  validators: {
+    onChange: zodAdapter(partnerSchema),
+    onSubmit: zodAdapter(partnerSchema)
+  },
+  onSubmit: () => formEl?.submit() // Native form submission
+}));
+```
 
-### TanStack Form Validation
-- **Issue**: Real-time validation not triggering
-- **Solution**: Use `zodAdapter` with `validators: { onChange, onSubmit }` properly configured
+**Field rendering with validation:**
+```svelte
+<Field name="email">
+  {#snippet children(field)}
+    <input
+      type="email"
+      value={field.state.value ?? ''}
+      on:input={(e) => {
+        field.setValue(e.currentTarget.value);
+        validateFieldValue('email', e.currentTarget.value);
+      }}
+      on:blur={() => field.setTouched(true)}
+      aria-invalid={$fieldErrors.email ? 'true' : 'false'}
+      aria-describedby={$fieldErrors.email ? 'email-error' : undefined}
+    />
+    {#if $fieldErrors.email}
+      <span id="email-error" class="error">{$fieldErrors.email[0]}</span>
+    {/if}
+  {/snippet}
+</Field>
+```
 
-### Database Migrations
-- **Process**: `npm run db:generate` (Drizzle introspection) → `npm run db:migrate` (apply to DB)
-- **Critical**: Both steps required; `db:generate` alone doesn't apply changes to database
+**Hidden input fields (critical):**
+```svelte
+<!-- ❌ WRONG - uses field.state.value -->
+<input type="hidden" value={field.state.value ?? ''} name="partner_id" />
+
+<!-- ✅ CORRECT - uses local reactive variable -->
+<script>
+  let selectedPartner = $state('');
+</script>
+<input type="hidden" value={selectedPartner} name="partner_id" />
+```
+
+**Redirect handling after form submission:**
+```svelte
+import { enhance } from '$app/forms';
+import { goto } from '$app/navigation';
+
+<form method="POST" use:enhance={({ result }) => {
+  if (result.type === 'redirect') {
+    goto(result.location);
+  }
+}}>
+```
 
 ---
+
+## Common Svelte/SvelteKit Gotchas
+
+### Gotcha 1: Form State Not Syncing Before Submission
+- **Issue**: Hidden input fields using `field.state.value` don't sync with native form submission
+- **Solution**: Use local reactive variables; the form data comes from DOM element values, not TanStack's internal state
+- **Example**: `<input type="hidden" value={selectedPartner} name="partner_id" />`
+
+### Gotcha 2: Number Input Allows Letters
+- **Issue**: `type="number"` allows typing letters during input (they get stripped on submit)
+- **Solution**: Use `type="text"` + `inputmode="numeric"` + JavaScript filtering to prevent non-numeric input
+- **Code**: `.replace(/[^0-9]/g, '')`
+
+### Gotcha 3: Checkboxes Skip Keyboard Navigation
+- **Issue**: Checkboxes are not included in Tab order without explicit `tabindex`
+- **Solution**: Add `tabindex="0"` to checkbox labels/wrappers for keyboard accessibility
+
+### Gotcha 4: Keyboard Handlers Need Role Attributes
+- **Issue**: Elements with keyboard handlers trigger a11y warnings if not interactive
+- **Solution**: Add `role="presentation"` or a meaningful role + aria-label to non-interactive wrappers
+
+### Gotcha 5: `use:enhance` Doesn't Auto-Handle Redirects
+- **Issue**: After a 302 action, form stays on same page without explicit redirect handling
+- **Solution**: Add `redirect` branch in enhance callback and call `goto(result.location)`
+
+### Gotcha 6: Logout Should Be a `+server.ts` Endpoint
+- **Issue**: Using `+page.server.ts` load causes "cookies.set after response generated" errors
+- **Solution**: Implement logout as `+server.ts` endpoint that clears cookies before redirect
+
+### Gotcha 7: Form Fields Not Re-enabled on Error
+- **Issue**: Fields disabled during loading remain disabled after form submission failure
+- **Solution**: Re-enable fields on `failure`/`error` results so users can retry
+
+### Gotcha 8: Stale `.svelte-kit/types`
+- **Issue**: Deleted `.svelte-kit/types` folder doesn't auto-regenerate; causes ENOENT errors
+- **Solution**: Run `npm run prepare` (svelte-kit sync) to regenerate type definitions
+
+### Gotcha 9: Tests in `src/routes` Cause Type Churn
+- **Issue**: Files under `src/routes` with `+` prefix reserved; tests here cause type generation issues
+- **Solution**: Place tests in `src/tests/` directory instead of route folders
+
+### Gotcha 10: Reactive Conditions with Form State
+- **Issue**: Using `formApi.getFieldValue('x')` in `{#if}` conditions doesn't create reactive dependencies
+- **Solution**: Keep local reactive variables updated in `on:change` handlers, or render conditionals inside `<Field>` snippet using `field.state.value`
+
+### Gotcha 11: Page Component Not Remounting After Submit
+- **Issue**: When using `use:enhance`, page often doesn't remount, so server-returned `form` data needs manual hydration
+- **Solution**: Call `update()` in enhance callback and re-hydrate when `form` prop changes (e.g., `$: if (form) hydrateFromServer(form.values, form.errors)`)
+
+### Gotcha 12: Drizzle Migrations Aren't Auto-Applied
+- **Issue**: `npm run db:generate` creates migration files but doesn't apply them to database
+- **Solution**: Always run `npm run db:migrate` after `npm run db:generate` to apply pending migrations (see Setup & Development section for full workflow)
+
+---
+
+## TanStack Form Best Practices
+
+### Validation Flow
+1. **onChange validation** - Real-time feedback as user types (via `zodAdapter`)
+2. **Mark touched** - Only show errors after user interacts with field (`field.setTouched(true)`)
+3. **Sync errors to store** - Call `validateFieldValue(name, value)` to update `$fieldErrors` store
+4. **Server-side final validation** - Server action re-validates before persisting
+
+### Shared Validation Schemas
+- Create schemas in `src/lib/validation/<entity>.ts`
+- **Include coercions** (e.g., boolean from string inputs)
+- **Omit auto-generated fields** from create/edit schemas (e.g., partner code, user code)
+- **Include constraints** (phone pattern, email max length, etc.)
+
+### Audit Logging
+- Use `logAudit()` from `src/lib/server/audit.ts` after successful create/update
+- Log old/new snapshots for change tracking
+- Example: `await logAudit(db, userId, 'partner_update', { oldData, newData })`
+
+### Building a New Form (8-step process)
+1. Define schema in `src/lib/validation/<entity>.ts`
+2. Map field schemas for client-side helpers
+3. Server load: return `values`, `errors`, and extra data for client checks
+4. Client setup: `createForm()` with zodAdapter validators
+5. Field rendering: wrap with `<Field>`, bind value, mark touched, validate on change
+6. Inline errors: display first error per field from `$fieldErrors`
+7. Submit: prevent default, call `formApi.handleSubmit()`, let server action persist
+8. Audit: record old/new data snapshots using `logAudit()`
+
+---
+
 
 ## Implementation Checklist Template
 
@@ -280,8 +386,8 @@ docker compose up -d
 
 **Database operations:**
 ```bash
-npm run db:generate    # Update schema from migrations
-npm run db:migrate     # Apply to PostgreSQL
+npm run db:generate    # Generate migrations from schema changes
+npm run db:migrate     # Apply migrations to PostgreSQL database
 npm run db:seed        # Seed test users (creates if missing, resets passwords if exist)
 ```
 
@@ -289,6 +395,30 @@ npm run db:seed        # Seed test users (creates if missing, resets passwords i
 ```bash
 npm run db:seed        # Simply run seed again - will update passwords for existing accounts
 ```
+
+**Drizzle Migration Workflow:**
+1. Make schema changes in `src/lib/server/db/schema.ts`
+2. Run `npm run db:generate` - generates migration files in `drizzle/` folder
+3. Run `npm run db:migrate` - applies migrations to PostgreSQL
+4. Commit both `drizzle/*.sql` migration files and `drizzle/meta/` metadata
+
+**Verify migration state:**
+```bash
+psql "$DATABASE_URL" -c 'SELECT id, hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id;'
+```
+
+**Clean local reset (wipe all data):**
+```bash
+psql "$DATABASE_URL" -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO survey_admin; GRANT ALL ON SCHEMA public TO public;'
+npm run db:migrate
+npm run db:seed
+```
+
+**Key migration notes:**
+- Migrations are tracked in `drizzle/__drizzle_migrations` table
+- Do NOT hand-edit `drizzle/meta/_journal.json` - regenerate with `npm run db:generate`
+- If DB is missing recorded migrations: make migrations idempotent (use `IF NOT EXISTS` guards)
+- Enums use DO blocks for safety on PostgreSQL < 14
 
 **Testing:**
 ```bash
