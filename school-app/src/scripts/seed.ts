@@ -24,18 +24,7 @@ async function seedDatabase() {
 		const managerPasswordHash = await bcrypt.hash('password123', HASH_ROUNDS);
 		const teamPasswordHash = await bcrypt.hash('password123', HASH_ROUNDS);
 
-		// Check if users already exist
-		const result = await client`SELECT COUNT(*) as count FROM users;`;
-		const existingCount = (result[0] as { count: number }).count;
-
-		if (existingCount > 0) {
-			console.log('⚠️  Database already seeded. Skipping...');
-			await client.end();
-			return;
-		}
-
-		// Insert demo users
-		await db.insert(users).values([
+		const testUsers = [
 			{
 				email: 'admin@example.com',
 				passwordHash: adminPasswordHash,
@@ -57,7 +46,26 @@ async function seedDatabase() {
 				role: 'team_member',
 				isActive: true
 			}
-		]);
+		];
+
+		// Upsert test users (create if not exists, update password if exists)
+		for (const user of testUsers) {
+			const existingUser = await client`
+				SELECT id FROM users WHERE email = ${user.email}
+			`;
+
+			if (existingUser.length > 0) {
+				console.log(`🔄 Updating password for ${user.email}...`);
+				await client`
+					UPDATE users
+					SET password_hash = ${user.passwordHash}
+					WHERE email = ${user.email}
+				`;
+			} else {
+				console.log(`✨ Creating new user ${user.email}...`);
+				await db.insert(users).values(user);
+			}
+		}
 
 		console.log('✅ Database seeding complete!');
 		console.log('');
