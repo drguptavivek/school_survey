@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import { db } from './db';
 import { sessions, users } from './db/schema';
-import { eq, gt, ilike, or } from 'drizzle-orm';
+import { eq, lt, ilike, or } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 
 const { hash, compare } = bcrypt;
@@ -110,7 +110,7 @@ export async function deleteUserSessions(userId: string): Promise<void> {
 export async function cleanupExpiredSessions(): Promise<number> {
 	const result = await db
 		.delete(sessions)
-		.where(gt(sessions.expiresAt, new Date()))
+		.where(lt(sessions.expiresAt, new Date()))
 		.returning();
 
 	return result.length;
