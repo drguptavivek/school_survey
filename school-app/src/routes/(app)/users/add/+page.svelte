@@ -25,6 +25,7 @@
 	const values: UserCreateInput = ((data.reset ? data.values : form?.values ?? data.values) as UserCreateInput);
 	const fieldErrors = writable<UserErrors>({});
 	let qrDataUrl: string | null = null;
+	let selectedRole: UserCreateInput['role'] | undefined = values?.role;
 
 	$: credentials =
 		form?.generatedCode && form?.generatedPassword
@@ -164,6 +165,7 @@
 			for (const [key, val] of Object.entries(nextValues)) {
 				formApi.setFieldValue(key as keyof UserCreateInput, val as never, { dontValidate: true });
 			}
+			selectedRole = nextValues.role;
 		}
 		if (nextErrors) {
 			for (const [key, val] of Object.entries(nextErrors)) {
@@ -186,9 +188,16 @@
 	$: if (data.reset) {
 		formApi.reset();
 		fieldErrors.set({});
+		selectedRole = (data.values?.role ?? values?.role ?? 'team_member') as UserCreateInput['role'];
 		if (data.lockPartner && data.lockedPartnerId) {
 			formApi.setFieldValue('partnerId', data.lockedPartnerId as never, { dontValidate: true });
 		}
+	}
+
+	$: if (selectedRole && !showsPartner(selectedRole) && !isLockedPartner()) {
+		// Clear partner when switching to a non-partner role
+		formApi.setFieldValue('partnerId', '' as never, { dontValidate: true });
+		fieldErrors.update((curr) => ({ ...curr, partnerId: [] }));
 	}
 
 	// Re-hydrate after enhanced form submissions (when `form` prop updates)
@@ -473,6 +482,7 @@
 							on:change={(event) => {
 								const value = (event.target as HTMLSelectElement).value as UserCreateInput['role'];
 								field.handleChange(value);
+								selectedRole = value;
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
 								validateFieldValue('role', value);
 								// Trigger partner validation when role changes
@@ -498,7 +508,7 @@
 				{/snippet}
 			</Field>
 
-			{#if showsPartner(formApi.getFieldValue('role'))}
+			{#if showsPartner(selectedRole)}
 				<!-- Partner (only for partner-scoped roles) -->
 				<Field name="partnerId">
 					{#snippet children(field)}
@@ -508,7 +518,7 @@
 							{/if}
 							<label for="partnerId" class="block text-sm font-medium text-gray-700 mb-1">
 								Partner
-								{#if requiresPartner(formApi.getFieldValue('role'))}
+								{#if requiresPartner(selectedRole)}
 									<span class="text-red-500">*</span>
 								{/if}
 							</label>
@@ -527,7 +537,7 @@
 								class:border-red-500={getFirstError('partnerId')}
 								aria-invalid={getFirstError('partnerId') ? 'true' : 'false'}
 								aria-describedby={getFirstError('partnerId') ? 'partnerId-error' : undefined}
-								required={requiresPartner(formApi.getFieldValue('role'))}
+								required={requiresPartner(selectedRole)}
 								disabled={isLockedPartner()}
 							>
 								<option value="">Select partner</option>
