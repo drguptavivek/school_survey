@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
-import { requireUserAccess } from '$lib/server/guards';
+import { requireAuth, UserRole } from '$lib/server/guards';
 import { error, json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
@@ -8,7 +8,7 @@ import { logAudit } from '$lib/server/audit';
 
 export const DELETE: RequestHandler = async (event) => {
 	const { id } = event.params;
-	await requireUserAccess(event, id);
+	const currentUser = await requireAuth(event);
 
 	// Get the user record
 	const userRecord = await db
@@ -22,6 +22,22 @@ export const DELETE: RequestHandler = async (event) => {
 	}
 
 	const user = userRecord[0];
+
+	// Authorization check
+	// national_admin: can delete any user
+	if (currentUser.role === UserRole.NATIONAL_ADMIN) {
+		// Allow
+	}
+	// partner_manager: can only delete users in their partner
+	else if (currentUser.role === UserRole.PARTNER_MANAGER) {
+		if (!currentUser.partnerId || user.partnerId !== currentUser.partnerId) {
+			throw error(403, 'You can only delete users in your partner');
+		}
+	}
+	// Other roles cannot delete
+	else {
+		throw error(403, 'You do not have permission to delete users');
+	}
 
 	// Perform soft delete: set deletedAt and isActive = false
 	const updated = await db

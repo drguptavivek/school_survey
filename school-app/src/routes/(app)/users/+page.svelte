@@ -251,9 +251,35 @@
 								{user.isActive ? 'Active' : 'Inactive'}
 							</span>
 						</div>
-						<p class="text-sm text-gray-600 mt-1 break-all">{user.email}</p>
+					<p class="text-sm text-gray-600 mt-1 break-all">{user.email}</p>
 					</div>
-					<div class="shrink-0 flex items-center gap-2">
+
+				</div>
+
+				<dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+					<div class="flex items-center justify-between sm:block">
+							
+						<dt class="text-gray-500">Code</dt>
+						<dd class="font-mono text-gray-900">{user.code}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Phone</dt>
+						<dd class="text-gray-900">{formatPhoneNumber(user.phoneNumber)}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Partner</dt>
+						<dd class="text-gray-900">{user.partnerName || 'N/A'}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Created</dt>
+						<dd class="text-gray-900">{formatDate(user.createdAt)}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Last Login</dt>
+						<dd class="text-gray-900">{user.lastLoginAt ? formatDate(user.lastLoginAt) : 'N/A'}</dd>
+					</div>
+				</dl>
+									<div class="shrink-0 flex items-center gap-2">
 						<button
 							type="button"
 							class="inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
@@ -283,30 +309,6 @@
 							</button>
 						{/if}
 					</div>
-				</div>
-
-				<dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-					<div class="flex items-center justify-between sm:block">
-						<dt class="text-gray-500">Code</dt>
-						<dd class="font-mono text-gray-900">{user.code}</dd>
-					</div>
-					<div class="flex items-center justify-between sm:block">
-						<dt class="text-gray-500">Phone</dt>
-						<dd class="text-gray-900">{formatPhoneNumber(user.phoneNumber)}</dd>
-					</div>
-					<div class="flex items-center justify-between sm:block">
-						<dt class="text-gray-500">Partner</dt>
-						<dd class="text-gray-900">{user.partnerName || 'N/A'}</dd>
-					</div>
-					<div class="flex items-center justify-between sm:block">
-						<dt class="text-gray-500">Created</dt>
-						<dd class="text-gray-900">{formatDate(user.createdAt)}</dd>
-					</div>
-					<div class="flex items-center justify-between sm:block">
-						<dt class="text-gray-500">Last Login</dt>
-						<dd class="text-gray-900">{user.lastLoginAt ? formatDate(user.lastLoginAt) : 'N/A'}</dd>
-					</div>
-				</dl>
 
 				{#if resetForUserId === user.id}
 					{#if resetError}

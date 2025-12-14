@@ -27,10 +27,15 @@ export function canDeleteItem(
 	if (userRole === 'partner_manager') {
 		// Partner managers can only delete schools and users in their own partner
 		if (itemContext === 'school' || itemContext === 'user') {
+			// For users/schools from their own partner
+			if (!userPartnerId) return false;
 			return itemPartnerId === userPartnerId;
 		}
+		// Cannot delete partners or districts
+		return false;
 	}
 
+	// data_manager and team_member cannot delete anything
 	return false;
 }
 
