@@ -109,10 +109,10 @@ This document provides context for Claude Code to assist with the School Eye Hea
 ## Current Implementation Status
 
 **Phase**: 2 - School & Survey Management
-**Week**: 4 - School Management (IN PROGRESS)
+**Week**: 4 - School Management (COMPLETED) → Week 5 (NEXT)
 **Last Updated**: December 14, 2024
 
-### Completed (Weeks 1-3)
+### Completed (Weeks 1-4)
 - ✅ Docker environment with PostgreSQL 18
 - ✅ Authentication system with session management
 - ✅ Role-based access control (4 roles)
@@ -120,19 +120,20 @@ This document provides context for Claude Code to assist with the School Eye Hea
 - ✅ Partner management with auto-generated codes (starts at 11)
 - ✅ District management with auto-generated codes (starts at 101)
 - ✅ Audit logging for sensitive operations
-
-### Week 4 (Current)
 - ✅ School add/edit forms with 17 fields
 - ✅ Auto-generated school codes (starts at 201)
 - ✅ Form validation (phone, student strength)
 - ✅ Database migrations applied
-- ⏳ CSV bulk upload (next)
-- ⏳ School selection interface (next)
+- ✅ **Routes Consistency Audit** - All CRUD routes now follow consistent patterns
+- ✅ **Critical Security Fixes** - Partner scoping enforcement in edit routes
+- ✅ **Developer Documentation** - Comprehensive guides for future development
 
-### Upcoming (Weeks 5-6)
-- Survey form implementation (50+ fields)
-- Partner manager interface
-- Team member account creation
+### Weeks 5-6 (Current)
+- ⏳ CSV bulk upload
+- ⏳ School selection interface
+- ⏳ Survey form implementation (50+ fields)
+- ⏳ Partner manager interface
+- ⏳ Team member account creation
 
 ---
 
@@ -206,6 +207,75 @@ Analyzes Svelte code and returns issues/suggestions. **Must use before sending S
 
 ### 4. playground-link
 Generates Svelte Playground links. Only call after user confirmation, never for project files.
+
+---
+
+## Routes Consistency & Best Practices
+
+**Important:** All CRUD routes have been audited and standardized. Refer to these documents when developing new features:
+
+### Documentation Files (Root Directory)
+
+1. **CONSISTENCY_GUIDE.md** (800+ lines)
+   - Complete developer reference for building consistent CRUD routes
+   - Pattern templates for database, schema, validation, forms, guards, error handling
+   - Best practices and common mistakes to avoid
+   - Comprehensive checklist for new routes
+   - **USE THIS:** When implementing new CRUD routes or forms
+
+2. **CONSISTENCY_FIXES.md** (400+ lines)
+   - Detailed explanation of all critical fixes applied in this session
+   - Testing recommendations
+   - Security implications of each fix
+   - **USE THIS:** To understand what was fixed and why
+
+3. **CONSISTENCY_AUDIT.md** (500+ lines)
+   - Complete analysis of consistency issues found
+   - Impact assessment and priority levels
+   - Before/after comparisons
+   - **USE THIS:** To understand the full scope of issues addressed
+
+4. **SESSION_SUMMARY.md** (300+ lines)
+   - Complete overview of this development session
+   - List of all files modified
+   - Deployment recommendations
+   - **USE THIS:** For historical context and deployment planning
+
+### Key Patterns Established (Quick Reference)
+
+**Hidden Form Fields:**
+```svelte
+<!-- ❌ WRONG - uses stale field state -->
+<input type="hidden" name="partnerId" value={field.state.value} />
+
+<!-- ✅ CORRECT - uses reactive variable -->
+<script>
+  let selectedPartnerId = $state(data.values?.partnerId ?? '');
+</script>
+<input type="hidden" name="partnerId" value={selectedPartnerId} />
+```
+
+**Phone Validation:**
+- **Users (Personal):** Exactly 10 digits → `/^\d{10}$/`
+- **Partners/Schools (Organizations):** 10-20 chars with +, -, (), spaces → `/^[0-9+()\-\s]{10,20}$/`
+
+**Boolean Transformation (Checkboxes):**
+```typescript
+isActive: z
+  .union([z.string(), z.boolean()])
+  .transform(v => v === true || v === 'on' || v === 'true')
+```
+
+**Partner Scoping in Actions:**
+```typescript
+// Always verify scoping in action, not just load
+if (user.role === 'partner_manager' && user.partnerId) {
+  const record = await db.select(...).where(eq(table.partnerId, newValue));
+  if (!record || record[0].partnerId !== user.partnerId) {
+    return fail(403, { errors: { field: ['Access denied'] } });
+  }
+}
+```
 
 ---
 
