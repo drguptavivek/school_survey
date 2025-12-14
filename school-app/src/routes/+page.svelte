@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import SiteHeader from '$lib/components/SiteHeader.svelte';
 
 	export let data: PageData;
 
@@ -20,34 +21,8 @@
 	/>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-b from-sky-50 via-white to-white text-slate-900">
-	<header class="border-b border-slate-200/80 bg-white/80 backdrop-blur">
-		<div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-			<div class="flex items-center gap-3">
-				<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-600 text-lg font-bold text-white">
-					SE
-				</div>
-				<div>
-					<p class="text-sm font-semibold uppercase tracking-wide text-sky-700">School Survey</p>
-					<p class="text-sm text-slate-500">Nation-wide School Eye Health Program</p>
-				</div>
-			</div>
-			<div class="flex items-center gap-3">
-				{#if isLoggedIn}
-					<div class="hidden text-right text-sm sm:block">
-						<p class="font-semibold text-slate-900">{userLabel}</p>
-						<p class="text-xs text-slate-500">Signed in</p>
-					</div>
-				{/if}
-				<a
-					class="rounded-full bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
-					href={authHref}
-				>
-					{authLabel}
-				</a>
-			</div>
-		</div>
-	</header>
+<div class="min-h-screen bg-linear-to-b from-sky-50 via-white to-white text-slate-900">
+	<SiteHeader {isLoggedIn} {userLabel} {authHref} {authLabel} />
 
 	<main class="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
 		<section class="grid gap-10 lg:grid-cols-[1.1fr,0.9fr] lg:items-center">
