@@ -22,7 +22,7 @@
 	>;
 
 	const errors: UserErrors | null = form?.errors ?? (data.errors as UserErrors | null);
-	const values: UserCreateInput = (form?.values ?? data.values) as UserCreateInput;
+	const values: UserCreateInput = ((data.reset ? data.values : form?.values ?? data.values) as UserCreateInput);
 	const fieldErrors = writable<UserErrors>({});
 	let qrDataUrl: string | null = null;
 
@@ -50,23 +50,44 @@
 
 	function printCredentials() {
 		if (!credentials) return;
-		const popup = window.open('', '_blank', 'noopener,noreferrer,width=600,height=700');
-		if (!popup) return;
-		const qrImg = qrDataUrl ? `<img src="${qrDataUrl}" alt="Credentials QR code" style="width:220px;height:220px;"/>` : '';
-		const scriptOpen = '<scr' + 'ipt>';
-		const scriptClose = '</scr' + 'ipt>';
-		popup.document.write(`
+
+		const qrImg = qrDataUrl
+			? `<img src="${qrDataUrl}" alt="Credentials QR code" style="width:220px;height:220px;"/>`
+			: '';
+
+		const safeText = credentials
+			.replaceAll('&', '&amp;')
+			.replaceAll('<', '&lt;')
+			.replaceAll('>', '&gt;');
+
+		const html = `
       <html>
         <head><title>User Credentials</title></head>
         <body style="font-family: ui-sans-serif, system-ui; padding: 24px;">
           <h1 style="margin:0 0 12px 0;">User Credentials</h1>
           <div style="margin: 12px 0;">${qrImg}</div>
-          <pre style="font-size: 14px; background:#f5f5f5; padding:12px; border-radius:8px;">${credentials.replaceAll('<', '&lt;')}</pre>
-          ${scriptOpen}window.onload = () => { window.print(); };${scriptClose}
+          <pre style="font-size: 14px; background:#f5f5f5; padding:12px; border-radius:8px; white-space: pre-wrap;">${safeText}</pre>
         </body>
       </html>
-    `);
-		popup.document.close();
+    `;
+
+		const frame = document.createElement('iframe');
+		frame.style.position = 'fixed';
+		frame.style.right = '0';
+		frame.style.bottom = '0';
+		frame.style.width = '0';
+		frame.style.height = '0';
+		frame.style.border = '0';
+		frame.onload = () => {
+			try {
+				frame.contentWindow?.focus();
+				frame.contentWindow?.print();
+			} finally {
+				setTimeout(() => frame.remove(), 250);
+			}
+		};
+		frame.srcdoc = html;
+		document.body.appendChild(frame);
 	}
 
 	const formApi = createForm(() => ({
@@ -160,6 +181,15 @@
 			formApi.setFieldValue('partnerId', data.lockedPartnerId as never, { dontValidate: true });
 		}
 	});
+
+	// When navigating to /users/add?new=1, force a clean slate even if SvelteKit reuses the component
+	$: if (data.reset) {
+		formApi.reset();
+		fieldErrors.set({});
+		if (data.lockPartner && data.lockedPartnerId) {
+			formApi.setFieldValue('partnerId', data.lockedPartnerId as never, { dontValidate: true });
+		}
+	}
 
 	// Re-hydrate after enhanced form submissions (when `form` prop updates)
 	$: if (form) {
@@ -297,7 +327,7 @@
 						Back to Users
 					</a>
 					<a
-						href="/users/add"
+						href="/users/add?new=1"
 						class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
 					>
 						Add Another User

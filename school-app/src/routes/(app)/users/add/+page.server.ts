@@ -24,6 +24,7 @@ export const load: PageServerLoad = async (event) => {
 
 	const lockPartner = user.role === 'partner_manager';
 	const lockedPartnerId = lockPartner ? user.partnerId : null;
+	const reset = event.url.searchParams.has('new');
 
 	if (lockPartner && !lockedPartnerId) {
 		throw fail(400, { message: 'Partner Manager must be assigned to a partner before creating users.' });
@@ -50,7 +51,8 @@ export const load: PageServerLoad = async (event) => {
 		partners: partnersList,
 		roleOptions,
 		lockPartner,
-		lockedPartnerId
+		lockedPartnerId,
+		reset
 	};
 };
 
