@@ -85,6 +85,11 @@ export async function requireUserCreationAccess(event: RequestEvent, targetRole:
 		return user;
 	}
 
+	// Allow National Admin to create other National Admins
+	if (user.role === UserRole.NATIONAL_ADMIN && targetRole === UserRole.NATIONAL_ADMIN) {
+		return user;
+	}
+
 	throw error(403, `Forbidden - You do not have permission to create users with role: ${targetRole}`);
 }
 

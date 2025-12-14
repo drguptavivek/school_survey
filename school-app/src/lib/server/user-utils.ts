@@ -59,8 +59,10 @@ export async function createUserWithGeneratedFields(userData: any) {
 export function getAvailableRoleOptions(currentUserRole: string): Array<{value: string, label: string}> {
 	const roleHierarchy = {
 		'national_admin': [
+			{ value: 'national_admin', label: 'National Admin' },
 			{ value: 'partner_manager', label: 'Partner Manager' },
-			{ value: 'data_manager', label: 'Data Manager' }
+			{ value: 'data_manager', label: 'Data Manager' },
+			{ value: 'team_member', label: 'Team Member' }
 		],
 		'partner_manager': [
 			{ value: 'team_member', label: 'Team Member' }
@@ -80,7 +82,7 @@ export function getAvailableRoleOptions(currentUserRole: string): Array<{value: 
  */
 export function canCreateRole(currentUserRole: string, targetRole: string): boolean {
 	const allowedRoles = {
-		'national_admin': ['partner_manager', 'data_manager'],
+		'national_admin': ['national_admin', 'partner_manager', 'data_manager', 'team_member'],
 		'partner_manager': ['team_member'],
 		'data_manager': [],
 		'team_member': []

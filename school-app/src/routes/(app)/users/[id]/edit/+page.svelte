@@ -90,7 +90,7 @@
 	}
 
 	function requiresPartner(role: UserUpdateInput['role'] | undefined) {
-		return role === 'partner_manager';
+		return role === 'partner_manager' || role === 'team_member';
 	}
 
 	function hydrateFromServer(nextValues: UserUpdateInput | null, nextErrors: UserErrors | null) {

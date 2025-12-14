@@ -70,7 +70,7 @@ const userCoreSchema = z.object({
 });
 
 function requirePartnerForRole(data: { role: string; partnerId?: string }, ctx: z.RefinementCtx) {
-	if (data.role === 'partner_manager' && !data.partnerId) {
+	if ((data.role === 'partner_manager' || data.role === 'team_member') && !data.partnerId) {
 		ctx.addIssue({
 			code: z.ZodIssueCode.custom,
 			path: ['partnerId'],

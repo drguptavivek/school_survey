@@ -152,7 +152,7 @@
 	}
 
 	function requiresPartner(role: UserCreateInput['role'] | undefined) {
-		return role === 'partner_manager';
+		return role === 'partner_manager' || role === 'team_member';
 	}
 
 	function isLockedPartner() {
