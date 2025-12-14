@@ -13,6 +13,33 @@ type AuditParams = {
 	newData?: Record<string, unknown> | null;
 };
 
+/**
+ * Sensitive fields that should never be logged in plain text
+ */
+const SENSITIVE_FIELDS = new Set([
+	'temporaryPassword',
+	'password',
+	'passwordHash',
+	'token',
+	'apiKey',
+	'secret'
+]);
+
+/**
+ * Redact sensitive fields from audit data
+ */
+function redactSensitiveData(data: Record<string, unknown> | null | undefined): Record<string, unknown> | null | undefined {
+	if (!data) return data;
+
+	const redacted = { ...data };
+	for (const field of SENSITIVE_FIELDS) {
+		if (field in redacted) {
+			redacted[field] = '[REDACTED]';
+		}
+	}
+	return redacted;
+}
+
 export async function logAudit({
 	event,
 	userId,
@@ -25,10 +52,16 @@ export async function logAudit({
 }: AuditParams) {
 	try {
 		const ipAddress = event?.getClientAddress ? event.getClientAddress() : undefined;
-		const payload = changes
-			? changes
-			: oldData || newData
-				? { oldData: oldData ?? null, newData: newData ?? null }
+
+		// Redact sensitive data before logging
+		const redactedOldData = redactSensitiveData(oldData);
+		const redactedNewData = redactSensitiveData(newData);
+		const redactedChanges = changes ? redactSensitiveData(changes) : undefined;
+
+		const payload = redactedChanges
+			? redactedChanges
+			: redactedOldData || redactedNewData
+				? { oldData: redactedOldData ?? null, newData: redactedNewData ?? null }
 				: undefined;
 
 		await db.insert(auditLogs).values({
