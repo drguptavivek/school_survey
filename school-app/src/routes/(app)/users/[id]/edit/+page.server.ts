@@ -251,13 +251,13 @@ export const actions: Actions = {
 					name,
 					email,
 					phoneNumber,
-					role,
-					partnerId: partnerId || null,
-					isActive: active === 'Y',
-					dateActiveTill: formatDateForDB(dateActiveTill),
-					yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
-					updatedAt: new Date()
-				})
+						role,
+						partnerId: partnerId || null,
+						isActive: active === 'Y',
+						dateActiveTill: formatDateForDB(dateActiveTill ?? ''),
+						yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
+						updatedAt: new Date()
+					})
 			.where(eq(users.id, userId))
 				.returning({
 					id: users.id,

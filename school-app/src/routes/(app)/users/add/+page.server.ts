@@ -203,17 +203,17 @@ export const actions: Actions = {
 			console.log('[USER ADD] Attempting to insert user:', { name, email, role });
 		
 		// Generate user with auto-generated fields
-		const userData = await createUserWithGeneratedFields({
-			name,
-			email,
-			phoneNumber,
-			role,
-			partnerId,
-			isActive: active === 'Y',
-			dateActiveTill: formatDateForDB(dateActiveTill),
-			yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
-			createdBy: user.id
-		});
+			const userData = await createUserWithGeneratedFields({
+				name,
+				email,
+				phoneNumber,
+				role,
+				partnerId,
+				isActive: active === 'Y',
+				dateActiveTill: formatDateForDB(dateActiveTill ?? ''),
+				yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
+				createdBy: user.id
+			});
 
 		const inserted = await db
 			.insert(users)
