@@ -1,4 +1,4 @@
-package com.schoo.survey.data.security
+package edu.aiims.rpcschoolsurvey.data.security
 
 import android.content.Context
 import androidx.biometric.BiometricManager
@@ -11,16 +11,13 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.concurrent.Executor
-import javax.inject.Inject
-import javax.inject.Singleton
-
 // Extension to create DataStore
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "pin_preferences")
 
-@Singleton
-class PinManager @Inject constructor(
+class PinManager(
     private val context: Context
 ) {
     companion object {
@@ -110,14 +107,15 @@ class PinManager @Inject constructor(
     }
 
     suspend fun isLockedOut(): Boolean {
-        val lockoutUntil = getLockoutUntil()
-        return lockoutUntil > System.currentTimeMillis()
-    }
-
-    private suspend fun getLockoutUntil(): Long {
-        return context.dataStore.data.map { preferences ->
-            preferences[LOCKOUT_UNTIL_KEY]?.toLongOrNull() ?: 0L
-        }.value
+        return try {
+            val preferences = context.dataStore.data
+            val lockoutUntil = preferences.map { prefs ->
+                prefs[LOCKOUT_UNTIL_KEY]?.toLongOrNull() ?: 0L
+            }.first()
+            lockoutUntil > System.currentTimeMillis()
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private suspend fun incrementFailedAttempts(): Int {
@@ -189,13 +187,8 @@ class PinManager @Inject constructor(
         }
     }
 
-    fun createBiometricPrompt(
-        executor: Executor,
-        callback: BiometricPrompt.AuthenticationCallback
-    ): BiometricPrompt {
-        return BiometricPrompt(context, executor, callback)
-    }
-
+    // Note: This method requires Activity context, not Application context
+    // You should create the BiometricPrompt from your Activity
     fun createBiometricPromptInfo(
         title: String = "Authenticate",
         subtitle: String = "Use your biometric to authenticate",

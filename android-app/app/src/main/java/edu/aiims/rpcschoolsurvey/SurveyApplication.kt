@@ -1,16 +1,15 @@
-package com.schoo.survey
+package edu.aiims.rpcschoolsurvey
 
 import android.app.Application
 import androidx.work.Configuration
 import androidx.work.WorkManager
-import com.schoo.survey.data.database.SurveyDatabase
-import com.schoo.survey.data.network.ApiService
-import com.schoo.survey.data.repository.SurveyRepository
-import com.schoo.survey.data.repository.AuthRepository
-import com.schoo.survey.data.security.EncryptionManager
-import com.schoo.survey.data.security.PinManager
-import com.schoo.survey.data.sync.SyncManager
-import org.koin.android.ext.android.get
+import edu.aiims.rpcschoolsurvey.data.database.SurveyDatabase
+import edu.aiims.rpcschoolsurvey.data.network.ApiService
+import edu.aiims.rpcschoolsurvey.data.repository.SurveyRepository
+import edu.aiims.rpcschoolsurvey.data.repository.AuthRepository
+import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
+import edu.aiims.rpcschoolsurvey.data.security.PinManager
+import edu.aiims.rpcschoolsurvey.data.sync.SyncManager
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
@@ -19,6 +18,11 @@ class SurveyApplication : Application(), Configuration.Provider {
 
     // Database instance
     val database by lazy { SurveyDatabase.getDatabase(this) }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.DEBUG)
+            .build()
 
     override fun onCreate() {
         super.onCreate()
@@ -34,12 +38,6 @@ class SurveyApplication : Application(), Configuration.Provider {
 
         // Initialize WorkManager
         WorkManager.initialize(this, workManagerConfiguration)
-    }
-
-    override fun getWorkManagerConfiguration(): Configuration {
-        return Configuration.Builder()
-            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.ERROR)
-            .build()
     }
 
     // Dependency Injection module

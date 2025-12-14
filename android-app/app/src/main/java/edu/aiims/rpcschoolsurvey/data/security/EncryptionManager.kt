@@ -1,23 +1,17 @@
-package com.schoo.survey.data.security
+package edu.aiims.rpcschoolsurvey.data.security
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.security.KeyStore
 import java.security.SecureRandom
-import java.security.Security
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import javax.inject.Inject
-import javax.inject.Singleton
-
-@Singleton
 class EncryptionManager private constructor() {
 
     companion object {
@@ -49,9 +43,6 @@ class EncryptionManager private constructor() {
 
     private fun init(context: Context) {
         this.context = context
-
-        // Initialize BouncyCastle provider
-        Security.addProvider(BouncyCastleProvider())
 
         // Create or retrieve master key
         masterKey = MasterKey.Builder(context)
