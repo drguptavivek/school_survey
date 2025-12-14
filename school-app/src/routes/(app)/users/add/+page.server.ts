@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { users, partners } from '$lib/server/db/schema';
-import { requireNationalAdmin, requireUserCreationAccess, UserRole } from '$lib/server/guards';
+import { requirePartnerManager, requireUserCreationAccess, UserRole } from '$lib/server/guards';
 import { userCreateSchema, type UserCreateInput } from '$lib/validation/user';
 import { fail, redirect } from '@sveltejs/kit';
 import { eq, and, ilike } from 'drizzle-orm';
@@ -20,31 +20,49 @@ const defaults: UserCreateInput = {
 };
 
 export const load: PageServerLoad = async (event) => {
-	const user = await requireNationalAdmin(event);
+	const user = await requirePartnerManager(event);
 
-	// Get all partners for dropdown
-	const partnersList = await db
-		.select({
-			id: partners.id,
-			name: partners.name
-		})
-		.from(partners)
-		.orderBy(partners.name);
+	const lockPartner = user.role === 'partner_manager';
+	const lockedPartnerId = lockPartner ? user.partnerId : null;
+
+	if (lockPartner && !lockedPartnerId) {
+		throw fail(400, { message: 'Partner Manager must be assigned to a partner before creating users.' });
+	}
+
+	// Get partners for dropdown
+	const partnersList = lockPartner
+		? await db
+				.select({ id: partners.id, name: partners.name })
+				.from(partners)
+				.where(eq(partners.id, lockedPartnerId!))
+				.orderBy(partners.name)
+		: await db
+				.select({ id: partners.id, name: partners.name })
+				.from(partners)
+				.orderBy(partners.name);
 
 	// Get available role options based on current user's role
 	const roleOptions = getAvailableRoleOptions(user.role);
 
 	return {
-		values: defaults,
+		values: { ...defaults, partnerId: lockedPartnerId ?? defaults.partnerId },
 		errors: null,
 		partners: partnersList,
-		roleOptions
+		roleOptions,
+		lockPartner,
+		lockedPartnerId
 	};
 };
 
 export const actions: Actions = {
 	default: async (event) => {
-		const user = await requireNationalAdmin(event);
+		const user = await requirePartnerManager(event);
+		const lockPartner = user.role === 'partner_manager';
+		const lockedPartnerId = lockPartner ? user.partnerId : null;
+
+		if (lockPartner && !lockedPartnerId) {
+			return fail(400, { errors: { partnerId: ['Your account is not assigned to a partner'] } });
+		}
 
 		const formData = await event.request.formData();
 		const payload = {
@@ -52,7 +70,7 @@ export const actions: Actions = {
 			email: formData.get('email'),
 			phoneNumber: formData.get('phoneNumber'),
 			role: formData.get('role'),
-			partnerId: formData.get('partnerId'),
+			partnerId: lockPartner ? lockedPartnerId : formData.get('partnerId'),
 			active: formData.get('active'),
 			dateActiveTill: formData.get('dateActiveTill'),
 			yearsOfExperience: formData.get('yearsOfExperience')
@@ -67,13 +85,16 @@ export const actions: Actions = {
 
 		if (!parsed.success) {
 			// Re-fetch partners for dropdown
-			const partnersList = await db
-				.select({
-					id: partners.id,
-					name: partners.name
-				})
-				.from(partners)
-				.orderBy(partners.name);
+			const partnersList = lockPartner
+				? await db
+						.select({ id: partners.id, name: partners.name })
+						.from(partners)
+						.where(eq(partners.id, lockedPartnerId!))
+						.orderBy(partners.name)
+				: await db
+						.select({ id: partners.id, name: partners.name })
+						.from(partners)
+						.orderBy(partners.name);
 
 			const roleOptions = getAvailableRoleOptions(user.role);
 
@@ -90,19 +111,24 @@ export const actions: Actions = {
 				},
 				errors: parsed.error.flatten().fieldErrors,
 				partners: partnersList,
-				roleOptions
+				roleOptions,
+				lockPartner,
+				lockedPartnerId
 			});
 		}
 
 		// Check if current user can create this role
 		if (!await requireUserCreationAccess(event, parsed.data.role as UserRole)) {
-			const partnersList = await db
-				.select({
-					id: partners.id,
-					name: partners.name
-				})
-				.from(partners)
-				.orderBy(partners.name);
+			const partnersList = lockPartner
+				? await db
+						.select({ id: partners.id, name: partners.name })
+						.from(partners)
+						.where(eq(partners.id, lockedPartnerId!))
+						.orderBy(partners.name)
+				: await db
+						.select({ id: partners.id, name: partners.name })
+						.from(partners)
+						.orderBy(partners.name);
 
 			const roleOptions = getAvailableRoleOptions(user.role);
 
@@ -121,7 +147,9 @@ export const actions: Actions = {
 					role: ['You do not have permission to create users with this role']
 				},
 				partners: partnersList,
-				roleOptions
+				roleOptions,
+				lockPartner,
+				lockedPartnerId
 			});
 		}
 
@@ -136,13 +164,16 @@ export const actions: Actions = {
 			.limit(1);
 
 		if (existingUser.length > 0) {
-			const partnersList = await db
-				.select({
-					id: partners.id,
-					name: partners.name
-				})
-				.from(partners)
-				.orderBy(partners.name);
+			const partnersList = lockPartner
+				? await db
+						.select({ id: partners.id, name: partners.name })
+						.from(partners)
+						.where(eq(partners.id, lockedPartnerId!))
+						.orderBy(partners.name)
+				: await db
+						.select({ id: partners.id, name: partners.name })
+						.from(partners)
+						.orderBy(partners.name);
 
 			const roleOptions = getAvailableRoleOptions(user.role);
 
@@ -152,6 +183,7 @@ export const actions: Actions = {
 					email: String(payload.email ?? ''),
 					phoneNumber: String(payload.phoneNumber ?? ''),
 					role: String(payload.role ?? ''),
+					partnerId: String(payload.partnerId ?? ''),
 					active: String(payload.active ?? 'Y'),
 					dateActiveTill: String(payload.dateActiveTill ?? ''),
 					yearsOfExperience: String(payload.yearsOfExperience ?? '')
@@ -160,11 +192,13 @@ export const actions: Actions = {
 					email: ['A user with this email already exists']
 				},
 				partners: partnersList,
-				roleOptions
+				roleOptions,
+				lockPartner,
+				lockedPartnerId
 			});
 		}
 
-		console.log('[USER ADD] Attempting to insert user:', { name, email, role });
+			console.log('[USER ADD] Attempting to insert user:', { name, email, role });
 		
 		// Generate user with auto-generated fields
 		const userData = await createUserWithGeneratedFields({
@@ -202,12 +236,24 @@ export const actions: Actions = {
 			});
 
 		console.log('[USER ADD] Insert result:', inserted);
-		if (inserted[0]?.id) {
-			await logAudit({
-				event,
-				userId: event.locals.user?.id,
-				action: 'user_created',
-				entityType: 'user',
+			if (inserted[0]?.id) {
+				const roleOptions = getAvailableRoleOptions(user.role);
+				const partnersList = lockPartner
+					? await db
+							.select({ id: partners.id, name: partners.name })
+							.from(partners)
+							.where(eq(partners.id, lockedPartnerId!))
+							.orderBy(partners.name)
+					: await db
+							.select({ id: partners.id, name: partners.name })
+							.from(partners)
+							.orderBy(partners.name);
+
+				await logAudit({
+					event,
+					userId: event.locals.user?.id,
+					action: 'user_created',
+					entityType: 'user',
 				entityId: inserted[0].id,
 				oldData: null,
 				newData: {
@@ -224,24 +270,28 @@ export const actions: Actions = {
 				}
 			});
 
-			// Return generated credentials for display
-			return fail(303, {
-				values: {
-					name: String(payload.name ?? ''),
-					email: String(payload.email ?? ''),
-					phoneNumber: String(payload.phoneNumber ?? ''),
-					role: String(payload.role ?? ''),
-					active: String(payload.active ?? 'Y'),
-					dateActiveTill: String(payload.dateActiveTill ?? ''),
-					yearsOfExperience: String(payload.yearsOfExperience ?? '')
-				},
-				errors: null,
-				partners: partnersList,
-				roleOptions,
-				generatedCode: inserted[0]?.code || '',
-				generatedPassword: inserted[0]?.temporaryPassword || ''
-			});
-		}
+				// Return generated credentials for display (stay on page)
+				return {
+					values: {
+						name: String(payload.name ?? ''),
+						email: String(payload.email ?? ''),
+						phoneNumber: String(payload.phoneNumber ?? ''),
+						role: String(payload.role ?? ''),
+						partnerId: String(payload.partnerId ?? ''),
+						active: String(payload.active ?? 'Y'),
+						dateActiveTill: String(payload.dateActiveTill ?? ''),
+						yearsOfExperience: String(payload.yearsOfExperience ?? '')
+					},
+					errors: null,
+					partners: partnersList,
+					roleOptions,
+					lockPartner,
+					lockedPartnerId,
+					generatedCode: inserted[0]?.code || '',
+					// Use server-generated temp password (shown only once)
+					generatedPassword: userData.temporaryPassword || ''
+				};
+			}
 
 		throw redirect(303, '/users');
 	}

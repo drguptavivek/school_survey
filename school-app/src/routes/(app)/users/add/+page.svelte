@@ -9,6 +9,7 @@
 	import { writable } from 'svelte/store';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import QRCode from 'qrcode';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -23,6 +24,50 @@
 	const errors: UserErrors | null = form?.errors ?? (data.errors as UserErrors | null);
 	const values: UserCreateInput = (form?.values ?? data.values) as UserCreateInput;
 	const fieldErrors = writable<UserErrors>({});
+	let qrDataUrl: string | null = null;
+
+	$: credentials =
+		form?.generatedCode && form?.generatedPassword
+			? `Email: ${String(form?.values?.email ?? values.email ?? '')}\nUser Code: ${form.generatedCode}\nTemporary Password: ${form.generatedPassword}`
+		: null;
+
+	$: if (credentials) {
+		QRCode.toDataURL(credentials, { margin: 1, width: 220 })
+			.then((url: string) => {
+				qrDataUrl = url;
+			})
+			.catch(() => {
+				qrDataUrl = null;
+			});
+	} else {
+		qrDataUrl = null;
+	}
+
+	async function copyCredentials() {
+		if (!credentials) return;
+		await navigator.clipboard.writeText(credentials);
+	}
+
+	function printCredentials() {
+		if (!credentials) return;
+		const popup = window.open('', '_blank', 'noopener,noreferrer,width=600,height=700');
+		if (!popup) return;
+		const qrImg = qrDataUrl ? `<img src="${qrDataUrl}" alt="Credentials QR code" style="width:220px;height:220px;"/>` : '';
+		const scriptOpen = '<scr' + 'ipt>';
+		const scriptClose = '</scr' + 'ipt>';
+		popup.document.write(`
+      <html>
+        <head><title>User Credentials</title></head>
+        <body style="font-family: ui-sans-serif, system-ui; padding: 24px;">
+          <h1 style="margin:0 0 12px 0;">User Credentials</h1>
+          <div style="margin: 12px 0;">${qrImg}</div>
+          <pre style="font-size: 14px; background:#f5f5f5; padding:12px; border-radius:8px;">${credentials.replaceAll('<', '&lt;')}</pre>
+          ${scriptOpen}window.onload = () => { window.print(); };${scriptClose}
+        </body>
+      </html>
+    `);
+		popup.document.close();
+	}
 
 	const formApi = createForm(() => ({
 		defaultValues: values,
@@ -59,6 +104,23 @@
 		fieldErrors.update((curr) => ({ ...curr, [key]: errs }));
 	};
 
+	async function checkEmailUnique(email: string) {
+		const trimmed = email.trim();
+		if (!trimmed) return;
+
+		try {
+			const res = await fetch(`/users/check-email?email=${encodeURIComponent(trimmed)}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as { exists: boolean };
+			if (data.exists) {
+				formApi.setFieldMeta('email', (prev) => ({ ...prev, errors: ['A user with this email already exists'] }));
+				fieldErrors.update((curr) => ({ ...curr, email: ['A user with this email already exists'] }));
+			}
+		} catch {
+			// ignore network/temporary failures; submit still validates server-side
+		}
+	}
+
 	// Phone number input filtering
 	function digitsOnly(value: string) {
 		return value.replace(/[^0-9]/g, '');
@@ -72,16 +134,37 @@
 		return role === 'partner_manager';
 	}
 
-	// Hydrate server errors on mount
-	onMount(() => {
-		if (data.errors) {
-			Object.entries(data.errors).forEach(([key, errors]) => {
+	function isLockedPartner() {
+		return Boolean(data.lockPartner && data.lockedPartnerId);
+	}
+
+	function hydrateFromServer(nextValues: UserCreateInput | null, nextErrors: UserErrors | null) {
+		if (nextValues) {
+			for (const [key, val] of Object.entries(nextValues)) {
+				formApi.setFieldValue(key as keyof UserCreateInput, val as never, { dontValidate: true });
+			}
+		}
+		if (nextErrors) {
+			for (const [key, val] of Object.entries(nextErrors)) {
 				const fieldKey = key as keyof UserCreateInput;
-				fieldErrors.update((curr) => ({ ...curr, [fieldKey]: errors }));
-				formApi.setFieldMeta(fieldKey, (prev) => ({ ...prev, errors }));
-			});
+				formApi.setFieldMeta(fieldKey, (prev) => ({ ...prev, errors: val ?? [] }));
+				fieldErrors.update((curr) => ({ ...curr, [fieldKey]: val ?? [] }));
+			}
+		}
+	}
+
+	// Initial hydration
+	onMount(() => {
+		hydrateFromServer(values, errors);
+		if (data.lockPartner && data.lockedPartnerId) {
+			formApi.setFieldValue('partnerId', data.lockedPartnerId as never, { dontValidate: true });
 		}
 	});
+
+	// Re-hydrate after enhanced form submissions (when `form` prop updates)
+	$: if (form) {
+		hydrateFromServer((form.values ?? null) as UserCreateInput | null, (form.errors ?? null) as UserErrors | null);
+	}
 
 	// Get first error for field
 	function getFirstError(fieldName: string) {
@@ -103,39 +186,139 @@
 			<p class="mt-2 text-gray-600">Create a new user account with auto-generated credentials.</p>
 		</div>
 
-		<form
-			method="POST"
-			bind:this={formEl}
-			use:enhance={() => {
-				return async ({ result }) => {
-					if (result.type === 'redirect') {
-						await goto(result.location);
-					}
-				};
-			}}
-			class="space-y-6 bg-white shadow rounded-lg p-6"
-		>
-			<!-- Auto-generated fields display -->
-			{#if form?.generatedCode || form?.generatedPassword}
-				<div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
-					<h3 class="text-lg font-medium text-blue-900 mb-3">Generated Credentials</h3>
-					<div class="space-y-2">
-						{#if form?.generatedCode}
-							<div>
-								<span class="font-medium text-blue-700">User Code:</span>
-								<span class="ml-2 text-blue-900 font-mono">{form?.generatedCode}</span>
-							</div>
-						{/if}
-						{#if form?.generatedPassword}
-							<div>
-								<span class="font-medium text-blue-700">Temporary Password:</span>
-								<span class="ml-2 text-blue-900 font-mono">{form?.generatedPassword}</span>
-							</div>
-						{/if}
+		{#if form?.generatedCode && form?.generatedPassword}
+			<div class="space-y-6 bg-white shadow rounded-lg p-6">
+				<div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+					<div class="flex items-start justify-between gap-3">
+						<h3 class="text-lg font-medium text-blue-900">Generated Credentials</h3>
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-blue-700 border border-blue-200 hover:bg-blue-100"
+								on:click={copyCredentials}
+								disabled={!credentials}
+								aria-label="Copy credentials"
+							>
+								<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M8 8h10v12H8z" />
+									<path d="M6 16H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1" />
+								</svg>
+								Copy
+							</button>
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-blue-700 border border-blue-200 hover:bg-blue-100"
+								on:click={printCredentials}
+								disabled={!credentials}
+								aria-label="Print credentials"
+							>
+								<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M6 9V2h12v7" />
+									<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+									<path d="M6 14h12v8H6z" />
+								</svg>
+								Print
+							</button>
+						</div>
 					</div>
+					<div class="space-y-2 mt-3">
+						<div>
+							<span class="font-medium text-blue-700">Email (Login):</span>
+							<span class="ml-2 text-blue-900 font-mono break-all">{form?.values?.email}</span>
+						</div>
+						<div>
+							<span class="font-medium text-blue-700">User Code:</span>
+							<span class="ml-2 text-blue-900 font-mono">{form?.generatedCode}</span>
+						</div>
+						<div>
+							<span class="font-medium text-blue-700">Temporary Password:</span>
+							<span class="ml-2 text-blue-900 font-mono">{form?.generatedPassword}</span>
+						</div>
+					</div>
+					{#if qrDataUrl}
+						<div class="mt-4 flex justify-center">
+							<img
+								src={qrDataUrl}
+								alt="Credentials QR code"
+								class="h-[220px] w-[220px] bg-white p-2 rounded-md border border-blue-200"
+							/>
+						</div>
+					{/if}
 					<p class="mt-3 text-sm text-blue-600">Save these credentials securely. The temporary password will be shown only once.</p>
 				</div>
-			{/if}
+
+				<div class="rounded-lg border border-gray-200 p-4">
+					<h4 class="text-sm font-semibold text-gray-900 mb-3">Submitted Details</h4>
+					<dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+						<div class="flex items-center justify-between sm:block">
+							<dt class="text-gray-500">Name</dt>
+							<dd class="text-gray-900">{form?.values?.name}</dd>
+						</div>
+						<div class="flex items-center justify-between sm:block">
+							<dt class="text-gray-500">Role</dt>
+							<dd class="text-gray-900">{form?.values?.role}</dd>
+						</div>
+						<div class="flex items-center justify-between sm:block">
+							<dt class="text-gray-500">Phone</dt>
+							<dd class="text-gray-900">{form?.values?.phoneNumber}</dd>
+						</div>
+						<div class="flex items-center justify-between sm:block">
+							<dt class="text-gray-500">Active</dt>
+							<dd class="text-gray-900">{form?.values?.active === 'Y' ? 'Yes' : 'No'}</dd>
+						</div>
+						{#if form?.values?.partnerId}
+							<div class="flex items-center justify-between sm:block">
+								<dt class="text-gray-500">Partner</dt>
+								<dd class="text-gray-900">
+									{data.partners.find((p) => p.id === form?.values?.partnerId)?.name || form?.values?.partnerId}
+								</dd>
+							</div>
+						{/if}
+						{#if form?.values?.dateActiveTill}
+							<div class="flex items-center justify-between sm:block">
+								<dt class="text-gray-500">Date Active Till</dt>
+								<dd class="text-gray-900">{form?.values?.dateActiveTill}</dd>
+							</div>
+						{/if}
+						{#if form?.values?.yearsOfExperience}
+							<div class="flex items-center justify-between sm:block">
+								<dt class="text-gray-500">Years of Experience</dt>
+								<dd class="text-gray-900">{form?.values?.yearsOfExperience}</dd>
+							</div>
+						{/if}
+					</dl>
+				</div>
+
+				<div class="flex justify-end gap-3">
+					<a
+						href="/users"
+						class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+					>
+						Back to Users
+					</a>
+					<a
+						href="/users/add"
+						class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+					>
+						Add Another User
+					</a>
+				</div>
+			</div>
+		{:else}
+			<form
+				method="POST"
+				bind:this={formEl}
+				use:enhance={() => {
+					return async ({ result, update }) => {
+						if (result.type === 'redirect') {
+							await goto(result.location);
+							return;
+						}
+						await update();
+					};
+				}}
+				class="space-y-6 bg-white shadow rounded-lg p-6"
+			>
 
 			<!-- Name -->
 			<Field name="name">
@@ -189,7 +372,10 @@
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
 								validateFieldValue('email', value);
 							}}
-							on:blur={field.handleBlur}
+							on:blur={() => {
+								field.handleBlur();
+								checkEmailUnique(String(field.state.value ?? ''));
+							}}
 							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
 							class:border-red-500={getFirstError('email')}
 							aria-invalid={getFirstError('email') ? 'true' : 'false'}
@@ -287,6 +473,9 @@
 				<Field name="partnerId">
 					{#snippet children(field)}
 						<div>
+							{#if isLockedPartner()}
+								<input type="hidden" name="partnerId" value={data.lockedPartnerId} />
+							{/if}
 							<label for="partnerId" class="block text-sm font-medium text-gray-700 mb-1">
 								Partner
 								{#if requiresPartner(formApi.getFieldValue('role'))}
@@ -309,12 +498,18 @@
 								aria-invalid={getFirstError('partnerId') ? 'true' : 'false'}
 								aria-describedby={getFirstError('partnerId') ? 'partnerId-error' : undefined}
 								required={requiresPartner(formApi.getFieldValue('role'))}
+								disabled={isLockedPartner()}
 							>
 								<option value="">Select partner</option>
 								{#each data.partners as partner}
 									<option value={partner.id}>{partner.name}</option>
 								{/each}
 							</select>
+							{#if isLockedPartner()}
+								<p class="mt-1 text-xs text-gray-500">
+									Partner Managers can only create users for their own partner.
+								</p>
+							{/if}
 							{#if getFirstError('partnerId')}
 								<p id="partnerId-error" class="mt-1 text-sm text-red-600">
 									{getFirstError('partnerId')}
@@ -454,20 +649,21 @@
 			<input type="hidden" name="temporaryPassword" value={form?.generatedPassword || ''} />
 
 			<!-- Form Actions -->
-			<div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-				<a
-					href="/users"
+				<div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+					<a
+						href="/users"
 					class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium"
 				>
 					Cancel
 				</a>
-				<button
-					type="submit"
-					class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-				>
-					Create User
-				</button>
-			</div>
-		</form>
+					<button
+						type="submit"
+						class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+					>
+						Create User
+					</button>
+				</div>
+			</form>
+		{/if}
 	</div>
 </div>

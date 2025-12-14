@@ -36,8 +36,12 @@ export async function createUserWithGeneratedFields(userData: any) {
 	const hashedPassword = await hashPassword(tempPassword);
 
 	// Get next user code from sequence
-	const codeResult = await db.execute(sql`SELECT nextval('user_code_seq') as code`);
-	const userCode = `U${codeResult.rows[0].code}`;
+	const codeResult = await db.execute<{ code: string | number }>(sql`SELECT nextval('user_code_seq') as code`);
+	const nextCode = codeResult?.[0]?.code;
+	if (nextCode === undefined || nextCode === null) {
+		throw new Error('Failed to generate user code from sequence user_code_seq');
+	}
+	const userCode = `U${String(nextCode)}`;
 
 	return {
 		...userData,

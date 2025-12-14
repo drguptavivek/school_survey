@@ -12,14 +12,22 @@ export const load: PageServerLoad = async (event) => {
 	const userId = event.params.id as string;
 	const currentUser = await requireUserAccess(event, userId);
 
+	const lockPartner = currentUser.role === 'partner_manager';
+	const lockedPartnerId = lockPartner ? currentUser.partnerId : null;
+
 	// Partners list for dropdown (only used for certain roles)
-	const partnersList = await db
-		.select({
-			id: partners.id,
-			name: partners.name
-		})
-		.from(partners)
-		.orderBy(partners.name);
+	const partnersList = lockPartner
+		? lockedPartnerId
+			? await db
+					.select({ id: partners.id, name: partners.name })
+					.from(partners)
+					.where(eq(partners.id, lockedPartnerId))
+					.orderBy(partners.name)
+			: []
+		: await db
+				.select({ id: partners.id, name: partners.name })
+				.from(partners)
+				.orderBy(partners.name);
 
 	// Get user data
 	let userData;
@@ -69,13 +77,15 @@ export const load: PageServerLoad = async (event) => {
 			email: user.email,
 			phoneNumber: user.phoneNumber || '',
 			role: user.role,
-			partnerId: user.partnerId || '',
+			partnerId: lockPartner ? lockedPartnerId || '' : user.partnerId || '',
 			active: user.isActive ? 'Y' : 'N',
 			dateActiveTill: formatDateForDisplay(dateActiveTillIso) || '',
 			yearsOfExperience: user.yearsOfExperience?.toString() || ''
 		},
 		errors: null,
 		partners: partnersList,
+		lockPartner,
+		lockedPartnerId,
 		user: {
 			id: user.id,
 			name: user.name,
@@ -98,19 +108,21 @@ export const actions: Actions = {
 	default: async (event) => {
 		const userId = event.params.id as string;
 		const currentUser = await requireUserAccess(event, userId);
+		const lockPartner = currentUser.role === 'partner_manager';
+		const lockedPartnerId = lockPartner ? currentUser.partnerId : null;
 
 		const formData = await event.request.formData();
-			const payload = {
-				id: userId,
-				name: formData.get('name'),
-				email: formData.get('email'),
-				phoneNumber: formData.get('phoneNumber'),
-				role: formData.get('role'),
-				partnerId: formData.get('partnerId'),
-				active: formData.get('active'),
-				dateActiveTill: formData.get('dateActiveTill'),
-				yearsOfExperience: formData.get('yearsOfExperience')
-			};
+		const payload = {
+			id: userId,
+			name: formData.get('name'),
+			email: formData.get('email'),
+			phoneNumber: formData.get('phoneNumber'),
+			role: formData.get('role'),
+			partnerId: lockPartner ? lockedPartnerId : formData.get('partnerId'),
+			active: formData.get('active'),
+			dateActiveTill: formData.get('dateActiveTill'),
+			yearsOfExperience: formData.get('yearsOfExperience')
+		};
 
 		console.log('[USER EDIT] Payload received:', JSON.stringify(payload, null, 2));
 		const parsed = userUpdateSchema.safeParse(payload);

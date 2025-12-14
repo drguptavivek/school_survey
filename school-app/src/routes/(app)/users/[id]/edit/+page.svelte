@@ -26,6 +26,9 @@
 	const values: UserUpdateInput = (form?.values ?? data.values) as UserUpdateInput;
 	const fieldErrors = writable<UserErrors>({});
 	let selectedRole: UserUpdateInput['role'] | undefined = values?.role;
+	function isLockedPartner() {
+		return Boolean(data.lockPartner && data.lockedPartnerId);
+	}
 
 	const formApi = createForm(() => ({
 		defaultValues: values,
@@ -60,6 +63,24 @@
 		fieldErrors.update((curr) => ({ ...curr, [key]: errs }));
 	};
 
+	async function checkEmailUnique(email: string) {
+		const trimmed = email.trim();
+		if (!trimmed) return;
+
+		try {
+			const excludeId = values?.id ? `&excludeId=${encodeURIComponent(values.id)}` : '';
+			const res = await fetch(`/users/check-email?email=${encodeURIComponent(trimmed)}${excludeId}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as { exists: boolean };
+			if (data.exists) {
+				formApi.setFieldMeta('email', (prev) => ({ ...prev, errors: ['A user with this email already exists'] }));
+				fieldErrors.update((curr) => ({ ...curr, email: ['A user with this email already exists'] }));
+			}
+		} catch {
+			// ignore network/temporary failures; submit still validates server-side
+		}
+	}
+
 	function digitsOnly(value: string) {
 		return value.replace(/[^0-9]/g, '');
 	}
@@ -72,21 +93,33 @@
 		return role === 'partner_manager';
 	}
 
-	onMount(() => {
-		if (values) {
-			for (const [key, val] of Object.entries(values)) {
+	function hydrateFromServer(nextValues: UserUpdateInput | null, nextErrors: UserErrors | null) {
+		if (nextValues) {
+			for (const [key, val] of Object.entries(nextValues)) {
 				formApi.setFieldValue(key as keyof UserUpdateInput, val as never, { dontValidate: true });
 			}
-			selectedRole = values.role;
+			selectedRole = nextValues.role;
 		}
-		if (errors) {
-			for (const [key, val] of Object.entries(errors)) {
+		if (nextErrors) {
+			for (const [key, val] of Object.entries(nextErrors)) {
 				const fieldKey = key as keyof UserUpdateInput;
 				formApi.setFieldMeta(fieldKey, (prev) => ({ ...prev, errors: val ?? [] }));
 				fieldErrors.update((curr) => ({ ...curr, [fieldKey]: val ?? [] }));
 			}
 		}
+	}
+
+	onMount(() => {
+		hydrateFromServer(values, errors);
+		if (data.lockPartner && data.lockedPartnerId) {
+			formApi.setFieldValue('partnerId', data.lockedPartnerId as never, { dontValidate: true });
+		}
 	});
+
+	// Re-hydrate after enhanced form submissions (when `form` prop updates)
+	$: if (form) {
+		hydrateFromServer((form.values ?? null) as UserUpdateInput | null, (form.errors ?? null) as UserErrors | null);
+	}
 
 	function getFirstError(fieldName: string) {
 		const errs = Object.entries($fieldErrors).find(([key]) => key === fieldName)?.[1];
@@ -118,18 +151,20 @@
 			<p class="mt-2 text-gray-600">Update user information below.</p>
 		</div>
 
-		<form
-			method="POST"
-			bind:this={formEl}
-			use:enhance={() => {
-				return async ({ result }) => {
-					if (result.type === 'redirect') {
-						await goto(result.location);
-					}
-				};
-			}}
-			class="space-y-6 bg-white shadow rounded-lg p-6"
-		>
+			<form
+				method="POST"
+				bind:this={formEl}
+				use:enhance={() => {
+					return async ({ result, update }) => {
+						if (result.type === 'redirect') {
+							await goto(result.location);
+							return;
+						}
+						await update();
+					};
+				}}
+				class="space-y-6 bg-white shadow rounded-lg p-6"
+			>
 			<input type="hidden" name="id" value={values.id} />
 
 			<!-- Name -->
@@ -182,7 +217,10 @@
 								field.setMeta((prev) => ({ ...prev, isTouched: true }));
 								validateFieldValue('email', value);
 							}}
-							on:blur={field.handleBlur}
+							on:blur={() => {
+								field.handleBlur();
+								checkEmailUnique(String(field.state.value ?? ''));
+							}}
 							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
 							class:border-red-500={getFirstError('email')}
 							aria-invalid={getFirstError('email') ? 'true' : 'false'}
@@ -275,6 +313,9 @@
 					<Field name="partnerId">
 						{#snippet children(field)}
 							<div>
+								{#if isLockedPartner()}
+									<input type="hidden" name="partnerId" value={data.lockedPartnerId} />
+								{/if}
 								<label for="partnerId" class="block text-sm font-medium text-gray-700 mb-1">
 									Partner
 									{#if requiresPartner(selectedRole)}
@@ -297,12 +338,18 @@
 									aria-invalid={getFirstError('partnerId') ? 'true' : 'false'}
 									aria-describedby={getFirstError('partnerId') ? 'partnerId-error' : undefined}
 									required={requiresPartner(selectedRole)}
+									disabled={isLockedPartner()}
 								>
 									<option value="">Select partner</option>
 									{#each data.partners as partner}
 										<option value={partner.id}>{partner.name}</option>
 									{/each}
 								</select>
+								{#if isLockedPartner()}
+									<p class="mt-1 text-xs text-gray-500">
+										Partner Managers can only assign their own partner.
+									</p>
+								{/if}
 								{#if getFirstError('partnerId')}
 									<p id="partnerId-error" class="mt-1 text-sm text-red-600">
 										{getFirstError('partnerId')}

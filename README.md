@@ -419,3 +419,8 @@ For issues or questions:
 ## License
 
 Internal use only - School Survey Application
+
+
+Email: admin@example.com
+User Code: U1003
+Temporary Password: saluters-sennight-inkwood

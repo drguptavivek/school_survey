@@ -1,12 +1,20 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import QRCode from 'qrcode';
 
 	export let data;
 
 	let searchInput = $page.url.searchParams.get('q') || '';
 	let roleSelect = $page.url.searchParams.get('role') || '';
 	let activeSelect = $page.url.searchParams.get('active') || '';
+
+	type ResetResult = { id: string; email: string; code: string; temporaryPassword: string };
+	let resetForUserId: string | null = null;
+	let resetError: string | null = null;
+	let resetLoading = false;
+	let resetQrDataUrl: string | null = null;
+	let resetResult: ResetResult | null = null;
 
 	// Function to update URL with search parameters
 	function updateSearchParams() {
@@ -58,6 +66,88 @@
 	function formatPhoneNumber(phoneNumber: string | null) {
 		if (!phoneNumber) return 'N/A';
 		return phoneNumber.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+	}
+
+	function buildCredentialsText(result: ResetResult) {
+		return `Email: ${result.email}\nUser Code: ${result.code}\nTemporary Password: ${result.temporaryPassword}`;
+	}
+
+	async function resetCredentials(userId: string) {
+		const confirmed = window.confirm('Reset credentials for this user? This will generate a new temporary password.');
+		if (!confirmed) return;
+
+		resetForUserId = userId;
+		resetError = null;
+		resetLoading = true;
+		resetQrDataUrl = null;
+		resetResult = null;
+
+		try {
+			const res = await fetch(`/users/${encodeURIComponent(userId)}/reset-credentials`, { method: 'POST' });
+			if (!res.ok) {
+				const text = await res.text();
+				throw new Error(text || `Request failed (${res.status})`);
+			}
+			const data = (await res.json()) as ResetResult;
+			resetResult = data;
+			const credentials = buildCredentialsText(data);
+			resetQrDataUrl = await QRCode.toDataURL(credentials, { margin: 1, width: 220 });
+		} catch (e) {
+			resetError = e instanceof Error ? e.message : 'Failed to reset credentials';
+		} finally {
+			resetLoading = false;
+		}
+	}
+
+	async function copyResetCredentials() {
+		if (!resetResult) return;
+		await navigator.clipboard.writeText(buildCredentialsText(resetResult));
+	}
+
+	function printResetCredentials() {
+		if (!resetResult) return;
+		const credentials = buildCredentialsText(resetResult);
+		const qrImg = resetQrDataUrl
+			? `<img src="${resetQrDataUrl}" alt="Credentials QR code" style="width:220px;height:220px;"/>`
+			: '';
+
+		const escaped = credentials.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+		const html = `
+      <html>
+        <head>
+          <title>User Credentials</title>
+          <meta charset="utf-8" />
+        </head>
+        <body style="font-family: ui-sans-serif, system-ui; padding: 24px;">
+          <h1 style="margin:0 0 12px 0;">User Credentials</h1>
+          <div style="margin: 12px 0;">${qrImg}</div>
+          <pre style="white-space:pre-wrap;font-size:14px;background:#f5f5f5;padding:12px;border-radius:8px;">${escaped}</pre>
+        </body>
+      </html>
+    `;
+
+		const iframe = document.createElement('iframe');
+		iframe.style.position = 'fixed';
+		iframe.style.right = '0';
+		iframe.style.bottom = '0';
+		iframe.style.width = '0';
+		iframe.style.height = '0';
+		iframe.style.border = '0';
+		iframe.srcdoc = html;
+		document.body.appendChild(iframe);
+
+		const cleanup = () => {
+			iframe.remove();
+		};
+
+		iframe.onload = () => {
+			try {
+				iframe.contentWindow?.focus();
+				iframe.contentWindow?.print();
+			} finally {
+				setTimeout(cleanup, 1000);
+			}
+		};
 	}
 </script>
 
@@ -142,12 +232,26 @@
 						</div>
 						<p class="text-sm text-gray-600 mt-1 break-all">{user.email}</p>
 					</div>
-					<a
-						href="/users/{user.id}/edit"
-						class="shrink-0 inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
-					>
-						Edit
-					</a>
+					<div class="shrink-0 flex items-center gap-2">
+						<button
+							type="button"
+							class="inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+							on:click={() => resetCredentials(user.id)}
+							disabled={resetLoading && resetForUserId === user.id}
+						>
+							{#if resetLoading && resetForUserId === user.id}
+								Resetting…
+							{:else}
+								Reset Credentials
+							{/if}
+						</button>
+						<a
+							href="/users/{user.id}/edit"
+							class="inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+						>
+							Edit
+						</a>
+					</div>
 				</div>
 
 				<dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
@@ -172,6 +276,72 @@
 						<dd class="text-gray-900">{user.lastLoginAt ? formatDate(user.lastLoginAt) : 'N/A'}</dd>
 					</div>
 				</dl>
+
+				{#if resetForUserId === user.id}
+					{#if resetError}
+						<div class="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+							{resetError}
+						</div>
+					{/if}
+
+					{#if resetResult}
+						<div class="mt-4 rounded-md border border-blue-200 bg-blue-50 p-4">
+							<div class="flex items-start justify-between gap-3">
+								<h3 class="text-sm font-semibold text-blue-900">New Credentials</h3>
+								<div class="flex items-center gap-2">
+									<button
+										type="button"
+										class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-blue-700 border border-blue-200 hover:bg-blue-100"
+										on:click={copyResetCredentials}
+										aria-label="Copy credentials"
+									>
+										<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+											<path d="M8 8h10v12H8z" />
+											<path d="M6 16H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1" />
+										</svg>
+										Copy
+									</button>
+									<button
+										type="button"
+										class="inline-flex items-center gap-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-blue-700 border border-blue-200 hover:bg-blue-100"
+										on:click={printResetCredentials}
+										aria-label="Print credentials"
+									>
+										<svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+											<path d="M6 9V2h12v7" />
+											<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+											<path d="M6 14h12v8H6z" />
+										</svg>
+										Print
+									</button>
+								</div>
+							</div>
+							<div class="mt-3 space-y-2 text-sm">
+								<div>
+									<span class="font-medium text-blue-700">Email (Login):</span>
+									<span class="ml-2 text-blue-900 font-mono break-all">{resetResult.email}</span>
+								</div>
+								<div>
+									<span class="font-medium text-blue-700">User Code:</span>
+									<span class="ml-2 text-blue-900 font-mono">{resetResult.code}</span>
+								</div>
+								<div>
+									<span class="font-medium text-blue-700">Temporary Password:</span>
+									<span class="ml-2 text-blue-900 font-mono">{resetResult.temporaryPassword}</span>
+								</div>
+							</div>
+							{#if resetQrDataUrl}
+								<div class="mt-4 flex justify-center">
+									<img
+										src={resetQrDataUrl}
+										alt="Credentials QR code"
+										class="h-[220px] w-[220px] bg-white p-2 rounded-md border border-blue-200"
+									/>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				{/if}
 			</div>
 		{:else}
 			<div class="bg-white shadow rounded-lg p-6 text-center text-sm text-gray-500">
