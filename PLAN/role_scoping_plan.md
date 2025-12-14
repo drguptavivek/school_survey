@@ -127,11 +127,40 @@ Enforcement rules:
 - `national_admin` can edit all schools.
 - `partner_manager` can edit schools in their partner; server must enforce: `schools.partner_id === currentUser.partnerId`.
 - `data_manager` edit policy: currently global (same as national_admin); may be tightened later.
-- `team_member` cannot edit schools directly; can only submit “suggested changes” for review.
+- `team_member` cannot edit schools directly; can only submit "suggested changes" for review.
+
+### 2.4 Delete schools (soft delete)
+
+- `national_admin`: can delete any school (soft delete via `deletedAt` timestamp).
+- `partner_manager`: can delete only schools in their partner; server enforces `schools.partner_id === currentUser.partnerId`.
+- `data_manager` and `team_member`: cannot delete schools.
+- Business rule: schools with survey data cannot be deleted (checked via `has_survey_data` flag).
 
 ---
 
-## 3) Implementation checklist (enforcement points)
+## 3) Partners and Districts module
+
+### 3.1 Delete partners (soft delete)
+
+- `national_admin`: can delete any partner (soft delete via `deletedAt` timestamp).
+- All other roles: cannot delete partners.
+- Business rule: soft delete cascades visibility; districts/schools remain in DB but marked as deleted.
+
+### 3.2 Delete districts (soft delete)
+
+- `national_admin`: can delete any district (soft delete via `deletedAt` timestamp).
+- All other roles: cannot delete districts.
+- Business rule: soft delete cascades visibility; schools remain in DB but marked as deleted.
+
+### 3.3 Delete users (soft delete)
+
+- `national_admin`: can delete any user (soft delete via `deletedAt` timestamp + `isActive = false`).
+- `partner_manager`: can delete only users in their partner; server enforces `users.partner_id === currentUser.partnerId`.
+- `data_manager` and `team_member`: cannot delete users.
+
+---
+
+## 4) Implementation checklist (enforcement points)
 
 Use this checklist any time a route/action/API is added:
 
@@ -147,7 +176,7 @@ Use this checklist any time a route/action/API is added:
 
 ---
 
-## 4) Where scoping is enforced (code map)
+## 5) Where scoping is enforced (code map)
 
 This section links the scope rules above to the concrete places in code that enforce them.
 
@@ -170,7 +199,45 @@ This section links the scope rules above to the concrete places in code that enf
 - Users add form role options + partner locking: `school-app/src/routes/(app)/users/add/+page.server.ts`, `school-app/src/routes/(app)/users/add/+page.svelte`
 - Users edit form role options + self-role read-only for partner_manager: `school-app/src/routes/(app)/users/[id]/edit/+page.server.ts`, `school-app/src/routes/(app)/users/[id]/edit/+page.svelte`
 
-## 4) Planned evolution (to avoid future confusion)
+### Delete enforcement (soft delete pattern)
+
+**Client-side delete utilities:**
+- Permission checking: `school-app/src/lib/client/delete-utils.ts` (`canDeleteItem()`)
+  - Returns `true` only if: national_admin OR (partner_manager AND item belongs to their partner)
+- Delete confirmation & API call: `school-app/src/lib/client/delete-utils.ts` (`deleteItem()`)
+  - Shows confirmation dialog with context-specific message
+  - Makes DELETE request to appropriate endpoint
+
+**Delete UI component:**
+- Reusable "Danger Zone" section: `school-app/src/lib/components/DeleteSection.svelte`
+  - Conditionally renders delete button based on `canDeleteItem()` result
+  - Used on all 4 edit pages (users, partners, districts, schools)
+
+**Delete endpoints (server-side authorization):**
+- Users delete: `school-app/src/routes/(app)/users/[id]/delete/+server.ts`
+  - national_admin: can delete any user
+  - partner_manager: can delete users in their partner only
+  - Server-enforced: `users.partner_id === currentUser.partnerId`
+- Partners delete: `school-app/src/routes/(app)/partners/[id]/delete/+server.ts`
+  - national_admin only
+- Districts delete: `school-app/src/routes/(app)/districts/[id]/delete/+server.ts`
+  - national_admin only
+- Schools delete: `school-app/src/routes/(app)/schools/[id]/delete/+server.ts`
+  - Uses `requireSchoolEditAccess()` guard for role + partner validation
+  - Checks `has_survey_data` flag before allowing deletion
+
+**Delete list page actions:**
+- Partners list delete button: `school-app/src/routes/(app)/partners/+page.svelte` (national_admin only)
+- Districts list delete button: `school-app/src/routes/(app)/districts/+page.svelte` (national_admin only)
+- Schools list delete button: `school-app/src/routes/(app)/schools/+page.svelte` (national_admin + partner_manager with partner scoping)
+- Users list delete button: `school-app/src/routes/(app)/users/+page.svelte` (national_admin + partner_manager with partner scoping)
+
+**Database schema:**
+- Soft delete columns added: `deletedAt` timestamp on `users`, `partners`, `districts`, `schools` tables
+- List queries filter soft-deleted: `isNull(table.deletedAt)` in all list page queries
+- Audit logging: `src/lib/server/audit.ts` records old/new state snapshots for all deletions
+
+## 6) Planned evolution (to avoid future confusion)
 
 Right now `data_manager` is treated as “admin-like” in multiple areas (users + schools). As the app evolves, tighten this by defining:
 
