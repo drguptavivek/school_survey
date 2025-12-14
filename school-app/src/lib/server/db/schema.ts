@@ -276,6 +276,34 @@ export const surveyResponses = pgTable(
 	})
 );
 
+// Device Tokens table (for Android app authentication)
+export const deviceTokens = pgTable(
+	'device_tokens',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id').notNull(),
+		deviceId: varchar('device_id', { length: 255 }).notNull(),
+		token: varchar('token', { length: 500 }).notNull().unique(),
+		deviceInfo: text('device_info'),
+		expiresAt: timestamp('expires_at').notNull(),
+		isRevoked: boolean('is_revoked').default(false).notNull(),
+		revokedAt: timestamp('revoked_at'),
+		revokedBy: uuid('revoked_by'),
+		lastUsed: timestamp('last_used').defaultNow().notNull(),
+		ipAddress: varchar('ip_address', { length: 45 }),
+		userAgent: text('user_agent'),
+		createdAt: timestamp('created_at').defaultNow().notNull(),
+		updatedAt: timestamp('updated_at').defaultNow().notNull()
+	},
+	(table) => ({
+		userIdx: index('device_tokens_user_id_idx').on(table.userId),
+		deviceIdx: index('device_tokens_device_id_idx').on(table.deviceId),
+		tokenIdx: uniqueIndex('device_tokens_token_idx').on(table.token),
+		expiresIdx: index('device_tokens_expires_at_idx').on(table.expiresAt),
+		revokedIdx: index('device_tokens_revoked_idx').on(table.isRevoked)
+	})
+);
+
 // Audit Logs table
 export const auditLogs = pgTable(
 	'audit_logs',
@@ -299,6 +327,7 @@ export const auditLogs = pgTable(
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
 	sessions: many(sessions),
+	deviceTokens: many(deviceTokens),
 	createdPartners: many(partners, { relationName: 'createdBy' }),
 	selectedSchools: many(schools, { relationName: 'selectedBy' }),
 	uploadedSchools: many(schools, { relationName: 'uploadedBy' }),
@@ -383,6 +412,17 @@ export const surveyResponsesRelations = relations(surveyResponses, ({ one }) => 
 		fields: [surveyResponses.lastEditedBy],
 		references: [users.id],
 		relationName: 'lastEditedBy'
+	})
+}));
+
+export const deviceTokensRelations = relations(deviceTokens, ({ one }) => ({
+	user: one(users, {
+		fields: [deviceTokens.userId],
+		references: [users.id]
+	}),
+	revokedByUser: one(users, {
+		fields: [deviceTokens.revokedBy],
+		references: [users.id]
 	})
 }));
 
