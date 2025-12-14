@@ -39,4 +39,3 @@ export const POST: RequestHandler = async (event) => {
 		temporaryPassword: updated[0].temporaryPassword
 	});
 };
-

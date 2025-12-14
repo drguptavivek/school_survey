@@ -26,6 +26,7 @@
 	const values: UserUpdateInput = (form?.values ?? data.values) as UserUpdateInput;
 	const fieldErrors = writable<UserErrors>({});
 	let selectedRole: UserUpdateInput['role'] | undefined = values?.role;
+	const isSelf = Boolean(data?.isSelf);
 	function isLockedPartner() {
 		return Boolean(data.lockPartner && data.lockedPartnerId);
 	}
@@ -270,43 +271,52 @@
 				{/snippet}
 			</Field>
 
-			<!-- Role -->
-			<Field name="role">
-				{#snippet children(field)}
+				<!-- Role -->
+				{#if data.lockPartner && isSelf}
 					<div>
-						<label for="role" class="block text-sm font-medium text-gray-700 mb-1">
-							Role <span class="text-red-500">*</span>
-						</label>
-						<select
-							id="role"
-							name="role"
-							value={field.state.value ?? ''}
-								on:change={(event) => {
-									const value = (event.target as HTMLSelectElement).value as UserUpdateInput['role'];
-									selectedRole = value;
-									field.handleChange(value);
-									field.setMeta((prev) => ({ ...prev, isTouched: true }));
-									validateFieldValue('role', value);
-									validateFieldValue('partnerId', formApi.getFieldValue('partnerId'));
-								}}
-							on:blur={field.handleBlur}
-							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-							class:border-red-500={getFirstError('role')}
-							aria-invalid={getFirstError('role') ? 'true' : 'false'}
-							aria-describedby={getFirstError('role') ? 'role-error' : undefined}
-							required
-						>
-							<option value="national_admin">National Admin</option>
-							<option value="data_manager">Data Manager</option>
-							<option value="partner_manager">Partner Manager</option>
-							<option value="team_member">Team Member</option>
-						</select>
-						{#if getFirstError('role')}
-							<p id="role-error" class="mt-1 text-sm text-red-600">{getFirstError('role')}</p>
-						{/if}
+						<label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+						<div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+							{formatRole(String(values.role))}
+						</div>
+						<input type="hidden" name="role" value={values.role} />
 					</div>
-				{/snippet}
-				</Field>
+				{:else}
+					<Field name="role">
+						{#snippet children(field)}
+							<div>
+								<label for="role" class="block text-sm font-medium text-gray-700 mb-1">
+									Role <span class="text-red-500">*</span>
+								</label>
+								<select
+									id="role"
+									name="role"
+									value={field.state.value ?? ''}
+									on:change={(event) => {
+										const value = (event.target as HTMLSelectElement).value as UserUpdateInput['role'];
+										selectedRole = value;
+										field.handleChange(value);
+										field.setMeta((prev) => ({ ...prev, isTouched: true }));
+										validateFieldValue('role', value);
+										validateFieldValue('partnerId', formApi.getFieldValue('partnerId'));
+									}}
+									on:blur={field.handleBlur}
+									class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+									class:border-red-500={getFirstError('role')}
+									aria-invalid={getFirstError('role') ? 'true' : 'false'}
+									aria-describedby={getFirstError('role') ? 'role-error' : undefined}
+									required
+								>
+									{#each data.roleOptions as roleOption}
+										<option value={roleOption.value}>{roleOption.label}</option>
+									{/each}
+								</select>
+								{#if getFirstError('role')}
+									<p id="role-error" class="mt-1 text-sm text-red-600">{getFirstError('role')}</p>
+								{/if}
+							</div>
+						{/snippet}
+					</Field>
+				{/if}
 
 				{#if showsPartner(selectedRole)}
 					<!-- Partner (only for partner-scoped roles) -->

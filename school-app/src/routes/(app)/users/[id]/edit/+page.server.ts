@@ -1,12 +1,12 @@
 import { db } from '$lib/server/db';
 import { users, partners } from '$lib/server/db/schema';
-import { requireUserAccess } from '$lib/server/guards';
+import { canAssignUserRole, requireUserAccess, UserRole } from '$lib/server/guards';
 import { userUpdateSchema, type UserUpdateInput } from '$lib/validation/user';
 import { fail, redirect } from '@sveltejs/kit';
 import { eq, and, ilike, ne } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { logAudit } from '$lib/server/audit';
-import { formatDateForDB, formatDateForDisplay } from '$lib/server/user-utils';
+import { formatDateForDB, formatDateForDisplay, getAvailableRoleOptions } from '$lib/server/user-utils';
 
 export const load: PageServerLoad = async (event) => {
 	const userId = event.params.id as string;
@@ -14,6 +14,7 @@ export const load: PageServerLoad = async (event) => {
 
 	const lockPartner = currentUser.role === 'partner_manager';
 	const lockedPartnerId = lockPartner ? currentUser.partnerId : null;
+	const isSelf = currentUser.id === userId;
 
 	// Partners list for dropdown (only used for certain roles)
 	const partnersList = lockPartner
@@ -70,26 +71,42 @@ export const load: PageServerLoad = async (event) => {
 				? String(user.dateActiveTill)
 				: '';
 
-	return {
-		values: {
-			id: user.id,
-			name: user.name,
-			email: user.email,
-			phoneNumber: user.phoneNumber || '',
-			role: user.role,
-			partnerId: lockPartner ? lockedPartnerId || '' : user.partnerId || '',
-			active: user.isActive ? 'Y' : 'N',
-			dateActiveTill: formatDateForDisplay(dateActiveTillIso) || '',
-			yearsOfExperience: user.yearsOfExperience?.toString() || ''
-		},
-		errors: null,
-		partners: partnersList,
-		lockPartner,
-		lockedPartnerId,
-		user: {
-			id: user.id,
-			name: user.name,
-			email: user.email,
+		const roleOptions = (() => {
+			const options = getAvailableRoleOptions(currentUser.role);
+			if (isSelf && !options.some((o) => o.value === currentUser.role)) {
+				options.unshift({
+					value: currentUser.role,
+					label: currentUser.role
+						.split('_')
+						.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+						.join(' ')
+				});
+			}
+			return options;
+		})();
+
+		return {
+			values: {
+				id: user.id,
+				name: user.name,
+				email: user.email,
+				phoneNumber: user.phoneNumber || '',
+				role: user.role,
+				partnerId: lockPartner ? lockedPartnerId || '' : user.partnerId || '',
+				active: user.isActive ? 'Y' : 'N',
+				dateActiveTill: formatDateForDisplay(dateActiveTillIso) || '',
+				yearsOfExperience: user.yearsOfExperience?.toString() || ''
+			},
+			errors: null,
+			partners: partnersList,
+			lockPartner,
+			lockedPartnerId,
+			isSelf,
+			roleOptions,
+			user: {
+				id: user.id,
+				name: user.name,
+				email: user.email,
 			code: user.code,
 			phoneNumber: user.phoneNumber,
 			partnerId: user.partnerId,
@@ -110,6 +127,20 @@ export const actions: Actions = {
 		const currentUser = await requireUserAccess(event, userId);
 		const lockPartner = currentUser.role === 'partner_manager';
 		const lockedPartnerId = lockPartner ? currentUser.partnerId : null;
+		const isSelf = currentUser.id === userId;
+		const roleOptions = (() => {
+			const options = getAvailableRoleOptions(currentUser.role);
+			if (isSelf && !options.some((o) => o.value === currentUser.role)) {
+				options.unshift({
+					value: currentUser.role,
+					label: currentUser.role
+						.split('_')
+						.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+						.join(' ')
+				});
+			}
+			return options;
+		})();
 
 		const formData = await event.request.formData();
 		const payload = {
@@ -151,26 +182,30 @@ export const actions: Actions = {
 
 			const user = userData[0];
 
-				return fail(400, {
-					values: {
-						name: String(payload.name ?? ''),
-						email: String(payload.email ?? ''),
-						phoneNumber: String(payload.phoneNumber ?? ''),
-						role: String(payload.role ?? ''),
-						partnerId: String(payload.partnerId ?? ''),
-						active: String(payload.active ?? 'Y'),
-						dateActiveTill: String(payload.dateActiveTill ?? ''),
-						yearsOfExperience: String(payload.yearsOfExperience ?? '')
-					},
-					errors: parsed.error.flatten().fieldErrors,
-					partners: await db
-						.select({ id: partners.id, name: partners.name })
-						.from(partners)
-						.orderBy(partners.name),
-					user: {
-						id: user.id,
-						name: user.name,
-						email: user.email,
+					return fail(400, {
+						values: {
+							name: String(payload.name ?? ''),
+							email: String(payload.email ?? ''),
+							phoneNumber: String(payload.phoneNumber ?? ''),
+							role: String(payload.role ?? ''),
+							partnerId: String(payload.partnerId ?? ''),
+							active: String(payload.active ?? 'Y'),
+							dateActiveTill: String(payload.dateActiveTill ?? ''),
+							yearsOfExperience: String(payload.yearsOfExperience ?? '')
+						},
+						errors: parsed.error.flatten().fieldErrors,
+						partners: await db
+							.select({ id: partners.id, name: partners.name })
+							.from(partners)
+							.orderBy(partners.name),
+						lockPartner,
+						lockedPartnerId,
+						isSelf,
+						roleOptions,
+						user: {
+							id: user.id,
+							name: user.name,
+							email: user.email,
 						code: user.code,
 						phoneNumber: user.phoneNumber,
 						partnerId: user.partnerId,
@@ -182,8 +217,36 @@ export const actions: Actions = {
 				});
 			}
 
-			const { name, email, phoneNumber, role, partnerId, active, dateActiveTill, yearsOfExperience } =
-				parsed.data;
+				const { name, email, phoneNumber, role, partnerId, active, dateActiveTill, yearsOfExperience } =
+					parsed.data;
+
+			// Enforce role assignment permissions on edit (Partner Managers must not promote users)
+			const nextRole = role as UserRole;
+				if (!canAssignUserRole(currentUser.role as UserRole, nextRole)) {
+					return fail(403, {
+					values: {
+						name,
+						email,
+						phoneNumber,
+						role,
+						partnerId: String(partnerId ?? ''),
+						active,
+						dateActiveTill: String(dateActiveTill ?? ''),
+						yearsOfExperience: String(yearsOfExperience ?? '')
+					},
+						errors: {
+							role: ['You do not have permission to assign this role']
+						},
+						partners: await db.select({ id: partners.id, name: partners.name }).from(partners).orderBy(partners.name),
+						lockPartner,
+						lockedPartnerId,
+						isSelf,
+						roleOptions
+					});
+				}
+
+			// Partner is only applicable for partner-scoped roles.
+			const partnerIdForDb = nextRole === 'partner_manager' || nextRole === 'team_member' ? partnerId || null : null;
 
 		// Check for duplicate email (excluding current user)
 		const existingUser = await db
@@ -211,7 +274,7 @@ export const actions: Actions = {
 
 			const user = userData[0];
 
-				return fail(400, {
+					return fail(400, {
 					values: {
 						name: String(payload.name ?? ''),
 						email: String(payload.email ?? ''),
@@ -225,14 +288,18 @@ export const actions: Actions = {
 					errors: {
 						email: ['A user with this email already exists']
 					},
-					partners: await db
-						.select({ id: partners.id, name: partners.name })
-						.from(partners)
-						.orderBy(partners.name),
-					user: {
-						id: user.id,
-						name: user.name,
-						email: user.email,
+						partners: await db
+							.select({ id: partners.id, name: partners.name })
+							.from(partners)
+							.orderBy(partners.name),
+						lockPartner,
+						lockedPartnerId,
+						isSelf,
+						roleOptions,
+						user: {
+							id: user.id,
+							name: user.name,
+							email: user.email,
 						code: user.code,
 						phoneNumber: user.phoneNumber,
 						partnerId: user.partnerId,
@@ -245,14 +312,14 @@ export const actions: Actions = {
 			}
 
 		console.log('[USER EDIT] Attempting to update user:', { name, email, role, active });
-			const updatedUser = await db
-				.update(users)
-				.set({
-					name,
-					email,
-					phoneNumber,
+				const updatedUser = await db
+					.update(users)
+					.set({
+						name,
+						email,
+						phoneNumber,
 						role,
-						partnerId: partnerId || null,
+						partnerId: partnerIdForDb,
 						isActive: active === 'Y',
 						dateActiveTill: formatDateForDB(dateActiveTill ?? ''),
 						yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,

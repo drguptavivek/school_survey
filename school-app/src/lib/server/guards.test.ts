@@ -37,7 +37,7 @@ vi.mock('drizzle-orm', () => ({
 	eq: (...args: any[]) => ({ op: 'eq', args })
 }));
 
-import { requireSchoolEditAccess, requireUserAccess, UserRole } from './guards';
+import { canAssignUserRole, requireSchoolEditAccess, requireUserAccess, UserRole } from './guards';
 import { __mockState } from '$lib/server/db';
 
 function makeEvent(user: any) {
@@ -106,6 +106,26 @@ describe('guards', () => {
 		it('denies team_member edit', async () => {
 			const user = { id: 'u1', role: UserRole.TEAM_MEMBER, partnerId: 'p1' };
 			await expect(requireSchoolEditAccess(makeEvent(user), 's1')).rejects.toMatchObject({ status: 403 });
+		});
+	});
+
+	describe('canAssignUserRole', () => {
+		it('allows national_admin to assign any role', () => {
+			expect(canAssignUserRole(UserRole.NATIONAL_ADMIN, UserRole.NATIONAL_ADMIN)).toBe(true);
+			expect(canAssignUserRole(UserRole.NATIONAL_ADMIN, UserRole.DATA_MANAGER)).toBe(true);
+			expect(canAssignUserRole(UserRole.NATIONAL_ADMIN, UserRole.PARTNER_MANAGER)).toBe(true);
+			expect(canAssignUserRole(UserRole.NATIONAL_ADMIN, UserRole.TEAM_MEMBER)).toBe(true);
+		});
+
+		it('allows partner_manager to assign only team_member', () => {
+			expect(canAssignUserRole(UserRole.PARTNER_MANAGER, UserRole.TEAM_MEMBER)).toBe(true);
+			expect(canAssignUserRole(UserRole.PARTNER_MANAGER, UserRole.NATIONAL_ADMIN)).toBe(false);
+			expect(canAssignUserRole(UserRole.PARTNER_MANAGER, UserRole.DATA_MANAGER)).toBe(false);
+			expect(canAssignUserRole(UserRole.PARTNER_MANAGER, UserRole.PARTNER_MANAGER)).toBe(false);
+		});
+
+		it('denies team_member role assignment', () => {
+			expect(canAssignUserRole(UserRole.TEAM_MEMBER, UserRole.TEAM_MEMBER)).toBe(false);
 		});
 	});
 });

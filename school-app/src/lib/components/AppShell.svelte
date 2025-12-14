@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import SiteHeader from '$lib/components/SiteHeader.svelte';
 
-	export let user: { name: string; email: string; role: string } | null = null;
+	export let user: { name: string; email: string; role: string; code?: string | null } | null = null;
 
 	const navigationItems = [
 		{ href: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -25,7 +25,7 @@
 		isLoggedIn={Boolean(user)}
 		userLabel={user?.name ?? user?.email ?? 'Guest'}
 		userRole={user?.role ?? null}
-		userCode={(user as any)?.code ?? null}
+		userCode={user?.code ?? null}
 		authHref={user ? '/logout' : '/login'}
 		authLabel={user ? 'Logout' : 'Login'}
 	/>

@@ -27,6 +27,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				name: user.name,
 				role: user.role,
 				partnerId: user.partnerId,
+				code: (user as any).code ?? null,
 				isActive: user.isActive,
 				createdAt: user.createdAt,
 				updatedAt: user.updatedAt,

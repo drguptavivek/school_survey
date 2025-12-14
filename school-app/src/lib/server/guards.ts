@@ -21,6 +21,7 @@ export interface AuthenticatedUser {
 	name: string;
 	role: UserRole;
 	partnerId: string | null;
+	code?: string | null;
 	isActive: boolean;
 	createdAt: Date;
 	updatedAt: Date;
@@ -60,6 +61,21 @@ export async function requireNationalAdmin(event: RequestEvent) {
 
 export async function requirePartnerManager(event: RequestEvent) {
 	return requireRole(event, UserRole.NATIONAL_ADMIN, UserRole.PARTNER_MANAGER);
+}
+
+export function canAssignUserRole(editorRole: UserRole, targetRole: UserRole): boolean {
+	// Admin-like roles can assign any role (current policy).
+	if (editorRole === UserRole.NATIONAL_ADMIN || editorRole === UserRole.DATA_MANAGER) {
+		return true;
+	}
+
+	// Partner managers can only manage team members.
+	if (editorRole === UserRole.PARTNER_MANAGER) {
+		return targetRole === UserRole.TEAM_MEMBER;
+	}
+
+	// Team members cannot assign roles.
+	return false;
 }
 
 /**
