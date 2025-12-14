@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const userBaseSchema = z.object({
+const userCoreSchema = z.object({
 	name: z
 		.string()
 		.trim()
@@ -20,11 +20,12 @@ const userBaseSchema = z.object({
 		.regex(/^\d{10}$/, 'Phone number must contain only digits'),
 	role: z
 		.enum(['national_admin', 'data_manager', 'partner_manager', 'team_member'], {
-			errorMap: () => ({ message: 'Please select a valid role' })
+			message: 'Please select a valid role'
 		}),
+	partnerId: z.string().uuid().optional().or(z.literal('')).transform((v) => (v ? v : undefined)),
 	active: z
 		.enum(['Y', 'N'], {
-			errorMap: () => ({ message: 'Please select Y or N' })
+			message: 'Please select Y or N'
 		})
 		.default('Y'),
 	dateActiveTill: z
@@ -68,11 +69,23 @@ const userBaseSchema = z.object({
 		)
 });
 
-export const userCreateSchema = userBaseSchema;
+function requirePartnerForRole(data: { role: string; partnerId?: string }, ctx: z.RefinementCtx) {
+	if (data.role === 'partner_manager' && !data.partnerId) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: ['partnerId'],
+			message: 'Partner is required for this role'
+		});
+	}
+}
 
-export const userUpdateSchema = userBaseSchema.extend({
+export const userCreateSchema = userCoreSchema.superRefine(requirePartnerForRole);
+
+export const userUpdateSchema = userCoreSchema
+	.extend({
 	id: z.string().uuid({ message: 'User id is required' })
-});
+	})
+	.superRefine(requirePartnerForRole);
 
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>;

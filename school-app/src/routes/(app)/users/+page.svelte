@@ -73,7 +73,7 @@
 	<div class="bg-white shadow rounded-lg p-6 mb-6">
 		<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 			<div>
-				<label for="search" class="sr-only">Search users</label>
+				<label for="search" class="block text-sm font-medium text-gray-700 mb-1 ">Search users</label>
 				<input
 					id="search"
 					type="text"
@@ -125,69 +125,58 @@
 		</div>
 	</div>
 
-	<!-- Users Table -->
-	<div class="bg-white shadow rounded-lg overflow-hidden">
-		<div class="overflow-x-auto">
-			<table class="min-w-full divide-y divide-gray-200">
-				<thead class="bg-gray-50">
-					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Partner</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-					</tr>
-				</thead>
-				<tbody class="bg-white divide-y divide-gray-200">
-					{#each data.users as user}
-						<tr class="hover:bg-gray-50">
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm font-medium text-gray-900">{user.name}</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm text-gray-900">{user.code}</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm text-gray-900">{user.email}</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm text-gray-900">{formatPhoneNumber(user.phoneNumber)}</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-									{formatRole(user.role)}
-								</span>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="text-sm text-gray-900">{user.partnerName || 'N/A'}</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-									{user.active ? 'Active' : 'Inactive'}
-								</span>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-								{formatDate(user.createdAt)}
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-								<a href="/users/{user.id}/edit" class="text-indigo-600 hover:text-indigo-900 mr-3">
-									Edit
-								</a>
-							</td>
-						</tr>
-					{:else}
-						<tr>
-							<td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
-								No users found matching your criteria.
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+	<!-- Users Cards -->
+	<div class="grid grid-cols-3 gap-4">
+		{#each data.users as user}
+			<div class="bg-white shadow rounded-lg p-5 border border-gray-100">
+				<div class="flex items-start justify-between gap-4">
+					<div class="min-w-0">
+						<div class="flex items-center gap-2 flex-wrap">
+							<h2 class="text-base font-semibold text-gray-900 truncate">{user.name}</h2>
+							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+								{formatRole(user.role)}
+							</span>
+							<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+								{user.isActive ? 'Active' : 'Inactive'}
+							</span>
+						</div>
+						<p class="text-sm text-gray-600 mt-1 break-all">{user.email}</p>
+					</div>
+					<a
+						href="/users/{user.id}/edit"
+						class="shrink-0 inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+					>
+						Edit
+					</a>
+				</div>
+
+				<dl class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Code</dt>
+						<dd class="font-mono text-gray-900">{user.code}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Phone</dt>
+						<dd class="text-gray-900">{formatPhoneNumber(user.phoneNumber)}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Partner</dt>
+						<dd class="text-gray-900">{user.partnerName || 'N/A'}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Created</dt>
+						<dd class="text-gray-900">{formatDate(user.createdAt)}</dd>
+					</div>
+					<div class="flex items-center justify-between sm:block">
+						<dt class="text-gray-500">Last Login</dt>
+						<dd class="text-gray-900">{user.lastLoginAt ? formatDate(user.lastLoginAt) : 'N/A'}</dd>
+					</div>
+				</dl>
+			</div>
+		{:else}
+			<div class="bg-white shadow rounded-lg p-6 text-center text-sm text-gray-500">
+				No users found matching your criteria.
+			</div>
+		{/each}
 	</div>
 </div>

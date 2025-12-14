@@ -13,6 +13,7 @@ const defaults: UserCreateInput = {
 	email: '',
 	phoneNumber: '',
 	role: 'team_member', // Default role
+	partnerId: '',
 	active: 'Y',
 	dateActiveTill: '',
 	yearsOfExperience: ''
@@ -51,6 +52,7 @@ export const actions: Actions = {
 			email: formData.get('email'),
 			phoneNumber: formData.get('phoneNumber'),
 			role: formData.get('role'),
+			partnerId: formData.get('partnerId'),
 			active: formData.get('active'),
 			dateActiveTill: formData.get('dateActiveTill'),
 			yearsOfExperience: formData.get('yearsOfExperience')
@@ -81,6 +83,7 @@ export const actions: Actions = {
 					email: String(payload.email ?? ''),
 					phoneNumber: String(payload.phoneNumber ?? ''),
 					role: String(payload.role ?? ''),
+					partnerId: String(payload.partnerId ?? ''),
 					active: String(payload.active ?? 'Y'),
 					dateActiveTill: String(payload.dateActiveTill ?? ''),
 					yearsOfExperience: String(payload.yearsOfExperience ?? '')
@@ -109,6 +112,7 @@ export const actions: Actions = {
 					email: String(payload.email ?? ''),
 					phoneNumber: String(payload.phoneNumber ?? ''),
 					role: String(payload.role ?? ''),
+					partnerId: String(payload.partnerId ?? ''),
 					active: String(payload.active ?? 'Y'),
 					dateActiveTill: String(payload.dateActiveTill ?? ''),
 					yearsOfExperience: String(payload.yearsOfExperience ?? '')
@@ -122,6 +126,7 @@ export const actions: Actions = {
 		}
 
 		const { name, email, phoneNumber, role, active, dateActiveTill, yearsOfExperience } = parsed.data;
+		const partnerId = parsed.data.partnerId || null;
 
 		// Check for duplicate email
 		const existingUser = await db
@@ -167,6 +172,7 @@ export const actions: Actions = {
 			email,
 			phoneNumber,
 			role,
+			partnerId,
 			isActive: active === 'Y',
 			dateActiveTill: formatDateForDB(dateActiveTill),
 			yearsOfExperience: yearsOfExperience ? parseInt(yearsOfExperience, 10) : null,
@@ -180,6 +186,7 @@ export const actions: Actions = {
 				email: userData.email,
 				passwordHash: userData.passwordHash,
 				role: userData.role,
+				partnerId: userData.partnerId,
 				code: userData.code,
 				phoneNumber: userData.phoneNumber,
 				isActive: userData.isActive,

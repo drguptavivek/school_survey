@@ -1,16 +1,96 @@
 <script lang="ts">
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
+	import type { UserUpdateInput } from '$lib/validation/user';
+	import { userUpdateSchema } from '$lib/validation/user';
+	import { zodAdapter } from '$lib/forms/zodAdapter';
+	import { createForm } from '@tanstack/svelte-form';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { z } from 'zod';
+	import { writable } from 'svelte/store';
 
 	export let data: PageData;
+	export let form: ActionData;
 
 	let formEl: HTMLFormElement | null = null;
 
-	// Format date for display
-	function formatDateForDisplay(dateString: string) {
-		if (!dateString) return '';
-		return dateString; // Already in dd/mm/yyyy format
+	type UserErrors = Partial<
+		Record<
+			'id' | 'name' | 'email' | 'phoneNumber' | 'role' | 'partnerId' | 'active' | 'dateActiveTill' | 'yearsOfExperience',
+			string[]
+		>
+	>;
+
+	const errors: UserErrors | null = form?.errors ?? (data.errors as UserErrors | null);
+	const values: UserUpdateInput = (form?.values ?? data.values) as UserUpdateInput;
+	const fieldErrors = writable<UserErrors>({});
+	let selectedRole: UserUpdateInput['role'] | undefined = values?.role;
+
+	const formApi = createForm(() => ({
+		defaultValues: values,
+		validators: {
+			onChange: zodAdapter(userUpdateSchema),
+			onSubmit: zodAdapter(userUpdateSchema)
+		},
+		onSubmit: () => {
+			formEl?.submit();
+		}
+	}));
+
+	const Field = formApi.Field;
+
+	const fieldSchemas: Record<keyof UserUpdateInput, z.ZodTypeAny> = {
+		id: userUpdateSchema.shape.id,
+		name: userUpdateSchema.shape.name,
+		email: userUpdateSchema.shape.email,
+		phoneNumber: userUpdateSchema.shape.phoneNumber,
+		role: userUpdateSchema.shape.role,
+		partnerId: userUpdateSchema.shape.partnerId,
+		active: userUpdateSchema.shape.active,
+		dateActiveTill: userUpdateSchema.shape.dateActiveTill,
+		yearsOfExperience: userUpdateSchema.shape.yearsOfExperience
+	};
+
+	const validateFieldValue = (key: keyof UserUpdateInput, value: unknown) => {
+		const result = fieldSchemas[key].safeParse(value);
+		const errs = result.success ? [] : result.error.issues.map((err) => err.message);
+
+		formApi.setFieldMeta(key, (prev) => ({ ...prev, errors: errs }));
+		fieldErrors.update((curr) => ({ ...curr, [key]: errs }));
+	};
+
+	function digitsOnly(value: string) {
+		return value.replace(/[^0-9]/g, '');
+	}
+
+	function showsPartner(role: UserUpdateInput['role'] | undefined) {
+		return role === 'partner_manager' || role === 'team_member';
+	}
+
+	function requiresPartner(role: UserUpdateInput['role'] | undefined) {
+		return role === 'partner_manager';
+	}
+
+	onMount(() => {
+		if (values) {
+			for (const [key, val] of Object.entries(values)) {
+				formApi.setFieldValue(key as keyof UserUpdateInput, val as never, { dontValidate: true });
+			}
+			selectedRole = values.role;
+		}
+		if (errors) {
+			for (const [key, val] of Object.entries(errors)) {
+				const fieldKey = key as keyof UserUpdateInput;
+				formApi.setFieldMeta(fieldKey, (prev) => ({ ...prev, errors: val ?? [] }));
+				fieldErrors.update((curr) => ({ ...curr, [fieldKey]: val ?? [] }));
+			}
+		}
+	});
+
+	function getFirstError(fieldName: string) {
+		const errs = Object.entries($fieldErrors).find(([key]) => key === fieldName)?.[1];
+		return errs && errs.length > 0 ? errs[0] : null;
 	}
 
 	// Format role for display
@@ -50,133 +130,306 @@
 			}}
 			class="space-y-6 bg-white shadow rounded-lg p-6"
 		>
+			<input type="hidden" name="id" value={values.id} />
+
 			<!-- Name -->
-			<div>
-				<label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-					Name <span class="text-red-500">*</span>
-				</label>
-				<input
-					id="name"
-					name="name"
-					type="text"
-					value={data.user.name}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-					required
-				/>
-			</div>
+			<Field name="name">
+				{#snippet children(field)}
+					<div>
+						<label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+							Name <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="name"
+							name="name"
+							type="text"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								const value = (event.target as HTMLInputElement).value;
+								field.handleChange(value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('name', value);
+							}}
+							on:blur={field.handleBlur}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class:border-red-500={getFirstError('name')}
+							aria-invalid={getFirstError('name') ? 'true' : 'false'}
+							aria-describedby={getFirstError('name') ? 'name-error' : undefined}
+							required
+						/>
+						{#if getFirstError('name')}
+							<p id="name-error" class="mt-1 text-sm text-red-600">{getFirstError('name')}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Field>
 
 			<!-- Email -->
-			<div>
-				<label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-					Email <span class="text-red-500">*</span>
-				</label>
-				<input
-					id="email"
-					name="email"
-					type="email"
-					value={data.user.email}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-					required
-				/>
-			</div>
+			<Field name="email">
+				{#snippet children(field)}
+					<div>
+						<label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+							Email <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="email"
+							name="email"
+							type="email"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								const value = (event.target as HTMLInputElement).value;
+								field.handleChange(value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('email', value);
+							}}
+							on:blur={field.handleBlur}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class:border-red-500={getFirstError('email')}
+							aria-invalid={getFirstError('email') ? 'true' : 'false'}
+							aria-describedby={getFirstError('email') ? 'email-error' : undefined}
+							required
+						/>
+						{#if getFirstError('email')}
+							<p id="email-error" class="mt-1 text-sm text-red-600">{getFirstError('email')}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Field>
 
 			<!-- Phone Number -->
-			<div>
-				<label for="phoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
-					Phone Number
-				</label>
-				<input
-					id="phoneNumber"
-					name="phoneNumber"
-					type="text"
-					inputmode="numeric"
-					maxlength="10"
-					value={data.user.phoneNumber || ''}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-					placeholder="1234567890"
-				/>
-			</div>
+			<Field name="phoneNumber">
+				{#snippet children(field)}
+					<div>
+						<label for="phoneNumber" class="block text-sm font-medium text-gray-700 mb-1">
+							Phone Number <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="phoneNumber"
+							name="phoneNumber"
+							type="text"
+							inputmode="numeric"
+							maxlength="10"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								const value = digitsOnly((event.target as HTMLInputElement).value);
+								(event.target as HTMLInputElement).value = value;
+								field.handleChange(value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('phoneNumber', value);
+							}}
+							on:blur={field.handleBlur}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class:border-red-500={getFirstError('phoneNumber')}
+							aria-invalid={getFirstError('phoneNumber') ? 'true' : 'false'}
+							aria-describedby={getFirstError('phoneNumber') ? 'phoneNumber-error' : undefined}
+							placeholder="1234567890"
+							required
+						/>
+						{#if getFirstError('phoneNumber')}
+							<p id="phoneNumber-error" class="mt-1 text-sm text-red-600">{getFirstError('phoneNumber')}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Field>
 
 			<!-- Role -->
-			<div>
-				<label for="role" class="block text-sm font-medium text-gray-700 mb-1">
-					Role <span class="text-red-500">*</span>
-				</label>
-				<select
-					id="role"
-					name="role"
-					value={data.user.role}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-					required
-				>
-					<option value="national_admin">National Admin</option>
-					<option value="data_manager">Data Manager</option>
-					<option value="partner_manager">Partner Manager</option>
-					<option value="team_member">Team Member</option>
-				</select>
-			</div>
+			<Field name="role">
+				{#snippet children(field)}
+					<div>
+						<label for="role" class="block text-sm font-medium text-gray-700 mb-1">
+							Role <span class="text-red-500">*</span>
+						</label>
+						<select
+							id="role"
+							name="role"
+							value={field.state.value ?? ''}
+								on:change={(event) => {
+									const value = (event.target as HTMLSelectElement).value as UserUpdateInput['role'];
+									selectedRole = value;
+									field.handleChange(value);
+									field.setMeta((prev) => ({ ...prev, isTouched: true }));
+									validateFieldValue('role', value);
+									validateFieldValue('partnerId', formApi.getFieldValue('partnerId'));
+								}}
+							on:blur={field.handleBlur}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class:border-red-500={getFirstError('role')}
+							aria-invalid={getFirstError('role') ? 'true' : 'false'}
+							aria-describedby={getFirstError('role') ? 'role-error' : undefined}
+							required
+						>
+							<option value="national_admin">National Admin</option>
+							<option value="data_manager">Data Manager</option>
+							<option value="partner_manager">Partner Manager</option>
+							<option value="team_member">Team Member</option>
+						</select>
+						{#if getFirstError('role')}
+							<p id="role-error" class="mt-1 text-sm text-red-600">{getFirstError('role')}</p>
+						{/if}
+					</div>
+				{/snippet}
+				</Field>
 
-			<!-- Active Status -->
-			<div>
-				<label class="block text-sm font-medium text-gray-700 mb-1">
-					Active Status <span class="text-red-500">*</span>
-				</label>
-				<div class="flex space-x-6">
-					<label class="flex items-center">
-						<input
-							type="radio"
-							name="active"
-							value="Y"
-							checked={data.user.isActive}
-							class="mr-2"
-							tabindex="0"
-						/>
-						<span class="text-sm">Yes</span>
-					</label>
-					<label class="flex items-center">
-						<input
-							type="radio"
-							name="active"
-							value="N"
-							checked={!data.user.isActive}
-							class="mr-2"
-							tabindex="0"
-						/>
-						<span class="text-sm">No</span>
-					</label>
-				</div>
-			</div>
+				{#if showsPartner(selectedRole)}
+					<!-- Partner (only for partner-scoped roles) -->
+					<Field name="partnerId">
+						{#snippet children(field)}
+							<div>
+								<label for="partnerId" class="block text-sm font-medium text-gray-700 mb-1">
+									Partner
+									{#if requiresPartner(selectedRole)}
+										<span class="text-red-500">*</span>
+									{/if}
+								</label>
+								<select
+									id="partnerId"
+									name="partnerId"
+									value={field.state.value ?? ''}
+									on:change={(event) => {
+										const value = (event.target as HTMLSelectElement).value;
+										field.handleChange(value);
+										field.setMeta((prev) => ({ ...prev, isTouched: true }));
+										validateFieldValue('partnerId', value);
+									}}
+									on:blur={field.handleBlur}
+									class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+									class:border-red-500={getFirstError('partnerId')}
+									aria-invalid={getFirstError('partnerId') ? 'true' : 'false'}
+									aria-describedby={getFirstError('partnerId') ? 'partnerId-error' : undefined}
+									required={requiresPartner(selectedRole)}
+								>
+									<option value="">Select partner</option>
+									{#each data.partners as partner}
+										<option value={partner.id}>{partner.name}</option>
+									{/each}
+								</select>
+								{#if getFirstError('partnerId')}
+									<p id="partnerId-error" class="mt-1 text-sm text-red-600">
+										{getFirstError('partnerId')}
+									</p>
+								{/if}
+							</div>
+						{/snippet}
+					</Field>
+				{/if}
+
+				<!-- Active Status -->
+				<Field name="active">
+				{#snippet children(field)}
+					<div>
+						<fieldset>
+							<legend class="block text-sm font-medium text-gray-700 mb-1">
+								Active Status <span class="text-red-500">*</span>
+							</legend>
+							<div class="flex space-x-6">
+								<label class="flex items-center">
+									<input
+										type="radio"
+										name="active"
+										value="Y"
+										checked={field.state.value === 'Y'}
+										on:change={() => {
+											field.handleChange('Y');
+											field.setMeta((prev) => ({ ...prev, isTouched: true }));
+											validateFieldValue('active', 'Y');
+										}}
+										on:blur={field.handleBlur}
+										class="mr-2"
+										tabindex="0"
+									/>
+									<span class="text-sm">Yes</span>
+								</label>
+								<label class="flex items-center">
+									<input
+										type="radio"
+										name="active"
+										value="N"
+										checked={field.state.value === 'N'}
+										on:change={() => {
+											field.handleChange('N');
+											field.setMeta((prev) => ({ ...prev, isTouched: true }));
+											validateFieldValue('active', 'N');
+										}}
+										on:blur={field.handleBlur}
+										class="mr-2"
+										tabindex="0"
+									/>
+									<span class="text-sm">No</span>
+								</label>
+							</div>
+						</fieldset>
+						{#if getFirstError('active')}
+							<p class="mt-1 text-sm text-red-600">{getFirstError('active')}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Field>
 
 			<!-- Date Active Till -->
-			<div>
-				<label for="dateActiveTill" class="block text-sm font-medium text-gray-700 mb-1">
-					Date Active Till (dd/mm/yyyy)
-				</label>
-				<input
-					id="dateActiveTill"
-					name="dateActiveTill"
-					type="text"
-					placeholder="DD/MM/YYYY"
-					value={formatDateForDisplay(data.user.dateActiveTill?.toISOString().split('T')[0])}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-				/>
-			</div>
+			<Field name="dateActiveTill">
+				{#snippet children(field)}
+					<div>
+						<label for="dateActiveTill" class="block text-sm font-medium text-gray-700 mb-1">
+							Date Active Till (dd/mm/yyyy)
+						</label>
+						<input
+							id="dateActiveTill"
+							name="dateActiveTill"
+							type="text"
+							placeholder="DD/MM/YYYY"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								const value = (event.target as HTMLInputElement).value;
+								field.handleChange(value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('dateActiveTill', value);
+							}}
+							on:blur={field.handleBlur}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class:border-red-500={getFirstError('dateActiveTill')}
+							aria-invalid={getFirstError('dateActiveTill') ? 'true' : 'false'}
+							aria-describedby={getFirstError('dateActiveTill') ? 'dateActiveTill-error' : undefined}
+						/>
+						{#if getFirstError('dateActiveTill')}
+							<p id="dateActiveTill-error" class="mt-1 text-sm text-red-600">{getFirstError('dateActiveTill')}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Field>
 
 			<!-- Years of Experience -->
-			<div>
-				<label for="yearsOfExperience" class="block text-sm font-medium text-gray-700 mb-1">
-					Years of Experience
-				</label>
-				<input
-					id="yearsOfExperience"
-					name="yearsOfExperience"
-					type="text"
-					inputmode="numeric"
-					value={data.user.yearsOfExperience?.toString() || ''}
-					class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-					placeholder="0-99"
-				/>
-			</div>
+			<Field name="yearsOfExperience">
+				{#snippet children(field)}
+					<div>
+						<label for="yearsOfExperience" class="block text-sm font-medium text-gray-700 mb-1">
+							Years of Experience
+						</label>
+						<input
+							id="yearsOfExperience"
+							name="yearsOfExperience"
+							type="text"
+							inputmode="numeric"
+							value={field.state.value ?? ''}
+							on:input={(event) => {
+								const value = digitsOnly((event.target as HTMLInputElement).value);
+								(event.target as HTMLInputElement).value = value;
+								field.handleChange(value);
+								field.setMeta((prev) => ({ ...prev, isTouched: true }));
+								validateFieldValue('yearsOfExperience', value);
+							}}
+							on:blur={field.handleBlur}
+							class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+							class:border-red-500={getFirstError('yearsOfExperience')}
+							aria-invalid={getFirstError('yearsOfExperience') ? 'true' : 'false'}
+							aria-describedby={getFirstError('yearsOfExperience') ? 'yearsOfExperience-error' : undefined}
+							placeholder="0-99"
+						/>
+						{#if getFirstError('yearsOfExperience')}
+							<p id="yearsOfExperience-error" class="mt-1 text-sm text-red-600">{getFirstError('yearsOfExperience')}</p>
+						{/if}
+					</div>
+				{/snippet}
+			</Field>
 
 			<!-- User Info Display -->
 			<div class="bg-gray-50 border border-gray-200 rounded-md p-4 mb-6">

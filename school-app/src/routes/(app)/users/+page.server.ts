@@ -17,6 +17,7 @@ const getUsers = async (search?: string, role?: string, active?: string) => {
 				phoneNumber: users.phoneNumber,
 				role: users.role,
 				isActive: users.isActive,
+				partnerName: partners.name,
 				createdAt: users.createdAt,
 				lastLoginAt: users.lastLoginAt
 			})
