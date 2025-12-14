@@ -8,9 +8,24 @@ node_modules
 /.svelte-kit
 /build
 
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 # OS
 .DS_Store
 Thumbs.db
+
+# IDE
+.idea
+*.iml
+.classpath
+.project
+.settings
 
 # Env
 .env
@@ -25,6 +40,13 @@ secrets/
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Gradle
+.gradle
+**/.gradle
+build/
+**/build/
+out/
 
 # Database
 /uploads
