@@ -79,7 +79,7 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
         // Verify device authentication
         const deviceAuth = await requireDeviceAuth(event);
 
-        const body: SyncStatusRequest = await event.json();
+        const body: SyncStatusRequest = await event.request.json();
         const { surveyIds } = body;
 
         if (!surveyIds || !Array.isArray(surveyIds)) {

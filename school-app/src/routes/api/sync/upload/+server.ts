@@ -37,9 +37,11 @@ interface BulkSyncResponse {
 }
 
 export const POST = async (event: RequestEvent): Promise<Response> => {
+    let deviceAuth: any = null;
+
     try {
         // Verify device authentication
-        const deviceAuth = await requireDeviceAuth(event);
+        deviceAuth = await requireDeviceAuth(event);
 
         const bulkRequest: BulkSyncRequest = await event.request.json();
 
@@ -173,7 +175,7 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
                 const insertedSurvey = await db.insert(surveyResponses).values({
                     // Basic Details
                     surveyUniqueId: decryptedData.surveyUniqueId,
-                    surveyDate: new Date(decryptedData.surveyDate),
+                    surveyDate: decryptedData.surveyDate, // Let Drizzle handle the date conversion
                     districtId: decryptedData.districtId,
                     areaType: decryptedData.areaType,
                     schoolId: decryptedData.schoolId,
@@ -228,7 +230,7 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
                     referredToOphthalmologist: decryptedData.referredToOphthalmologist || false,
 
                     // Metadata
-                    partnerId: deviceAuth.user.partnerId || '',
+                    partnerId: deviceAuth.user.partnerId || '508dfc65-5cbb-4f3e-a7c7-f21f72979c4d', // Fallback partner for admin users
                     submittedBy: deviceAuth.userId,
                     submittedAt: decryptedData.submittedAt ? new Date(decryptedData.submittedAt) : now,
                     teamEditDeadline,
@@ -303,10 +305,9 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
         await logAudit({
             action: 'bulk_sync_error',
             entityType: 'sync_operation',
-            userId: err.userId || null,
+            userId: deviceAuth?.userId || null,
             newData: {
                 error: err.message,
-                requestBody: JSON.stringify(await event.request.clone().json()),
                 ipAddress: event.getClientAddress(),
                 userAgent: event.request.headers.get('user-agent')
             }

@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { deviceTokens, users } from '$lib/server/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { logAudit } from '$lib/server/audit';
+import * as crypto from 'node:crypto';
 
 interface VerifyResponse {
     valid: boolean;

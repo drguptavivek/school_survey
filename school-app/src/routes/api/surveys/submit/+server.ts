@@ -64,9 +64,11 @@ interface SurveySubmissionResponse {
 }
 
 export const POST = async (event: RequestEvent): Promise<Response> => {
+    let deviceAuth: any = null;
+
     try {
         // Verify device authentication
-        const deviceAuth = await requireDeviceAuth(event);
+        deviceAuth = await requireDeviceAuth(event);
 
         const surveyData: SurveySubmissionRequest = await event.request.json();
 
@@ -98,17 +100,31 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
         }
 
         // Verify school access (partner scoping)
-        const schoolAccess = await db.select({
-            school: schools,
-            district: districts
-        })
-            .from(schools)
-            .innerJoin(districts, eq(schools.districtId, districts.id))
-            .where(and(
-                eq(schools.id, surveyData.schoolId),
-                eq(districts.partnerId, deviceAuth.user.partnerId || '')
-            ))
-            .limit(1);
+        // National admin and data manager can access any school
+        let schoolAccess;
+        if (deviceAuth.user.role === 'national_admin' || deviceAuth.user.role === 'data_manager') {
+            schoolAccess = await db.select({
+                school: schools,
+                district: districts
+            })
+                .from(schools)
+                .innerJoin(districts, eq(schools.districtId, districts.id))
+                .where(eq(schools.id, surveyData.schoolId))
+                .limit(1);
+        } else {
+            // Partner managers and team members are restricted to their partner's schools
+            schoolAccess = await db.select({
+                school: schools,
+                district: districts
+            })
+                .from(schools)
+                .innerJoin(districts, eq(schools.districtId, districts.id))
+                .where(and(
+                    eq(schools.id, surveyData.schoolId),
+                    eq(districts.partnerId, deviceAuth.user.partnerId)
+                ))
+                .limit(1);
+        }
 
         if (!schoolAccess[0]) {
             await logAudit({
@@ -166,10 +182,12 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
         const partnerEditDeadline = new Date(now.getTime() + (15 * 24 * 60 * 60 * 1000)); // 15 days
 
         // Insert survey
-        const insertedSurvey = await db.insert(surveyResponses).values({
+        let insertedSurvey;
+        try {
+            insertedSurvey = await db.insert(surveyResponses).values({
             // Basic Details
             surveyUniqueId: surveyData.surveyUniqueId,
-            surveyDate: new Date(surveyData.surveyDate),
+            surveyDate: surveyData.surveyDate, // Let Drizzle handle the date conversion
             districtId: surveyData.districtId,
             areaType: surveyData.areaType,
             schoolId: surveyData.schoolId,
@@ -183,12 +201,12 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
             consent: surveyData.consent,
 
             // Distance Vision
-            usesDistanceGlasses: surveyData.usesDistanceGlasses,
-            unaidedVaRightEye: surveyData.unaidedVaRightEye || null,
-            unaidedVaLeftEye: surveyData.unaidedVaLeftEye || null,
-            presentingVaRightEye: surveyData.presentingVaRightEye,
-            presentingVaLeftEye: surveyData.presentingVaLeftEye,
-            referredForRefraction: surveyData.referredForRefraction,
+            usesDistanceGlasses: Boolean(surveyData.usesDistanceGlasses),
+            unaided_va_right_eye: surveyData.unaidedVaRightEye || null,
+            unaided_va_left_eye: surveyData.unaidedVaLeftEye || null,
+            presenting_va_right_eye: surveyData.presentingVaRightEye,
+            presenting_va_left_eye: surveyData.presentingVaLeftEye,
+            referredForRefraction: Boolean(surveyData.referredForRefraction),
 
             // Refraction Details (conditional)
             sphericalPowerRight: surveyData.sphericalPowerRight || null,
@@ -214,24 +232,30 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
             timeSinceLastCheckup: surveyData.timeSinceLastCheckup || null,
             placeOfLastRefraction: surveyData.placeOfLastRefraction || null,
             costOfGlasses: surveyData.costOfGlasses || null,
-            usesSpectacleRegularly: surveyData.usesSpectacleRegularly || null,
-            spectacleAlignmentCentering: surveyData.spectacleAlignmentCentering || null,
+            usesSpectacleRegularly: Boolean(surveyData.usesSpectacleRegularly || false),
+            spectacleAlignmentCentering: Boolean(surveyData.spectacleAlignmentCentering || false),
             spectacleScratches: surveyData.spectacleScratches || null,
             spectacleFrameIntegrity: surveyData.spectacleFrameIntegrity || null,
 
             // Advice
-            spectaclesPrescribed: surveyData.spectaclesPrescribed,
-            referredToOphthalmologist: surveyData.referredToOphthalmologist,
+            spectaclesPrescribed: Boolean(surveyData.spectaclesPrescribed),
+            referredToOphthalmologist: Boolean(surveyData.referredToOphthalmologist),
 
             // Metadata
-            partnerId: deviceAuth.user.partnerId || '',
+            partnerId: deviceAuth.user.partnerId || '508dfc65-5cbb-4f3e-a7c7-f21f72979c4d', // Fallback partner for admin users
             submittedBy: deviceAuth.userId,
             submittedAt: surveyData.submittedAt ? new Date(surveyData.submittedAt) : now,
             teamEditDeadline,
             partnerEditDeadline,
             createdAt: now,
             updatedAt: now
-        }).returning();
+            }).returning();
+        } catch (dbError: any) {
+            console.error('Database insertion error:', dbError);
+            console.error('Database error cause:', dbError.cause);
+            console.error('Database error details:', JSON.stringify(dbError, null, 2));
+            throw new Error(`Database error: ${dbError.message} | Cause: ${dbError.cause?.message || 'Unknown'}`);
+        }
 
         const newSurvey = insertedSurvey[0];
 
@@ -270,10 +294,9 @@ export const POST = async (event: RequestEvent): Promise<Response> => {
         await logAudit({
             action: 'survey_submission_error',
             entityType: 'survey_response',
-            userId: err.userId || null,
+            userId: deviceAuth?.userId || null,
             newData: {
                 error: err.message,
-                requestBody: JSON.stringify(await event.request.clone().json()),
                 ipAddress: event.getClientAddress(),
                 userAgent: event.request.headers.get('user-agent')
             }
