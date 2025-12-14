@@ -98,6 +98,8 @@ export const load: PageServerLoad = async (event) => {
 			lockedPartnerId,
 			isSelf,
 			roleOptions,
+			currentUserRole: currentUser.role,
+			currentUserPartnerId: currentUser.partnerId,
 			user: {
 				id: user.id,
 				name: user.name,

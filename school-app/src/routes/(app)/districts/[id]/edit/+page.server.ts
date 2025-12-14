@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { districts, partners } from '$lib/server/db/schema';
-import { requireNationalAdmin } from '$lib/server/guards';
+import { requireNationalAdmin, requireAuth } from '$lib/server/guards';
 import { districtUpdateSchema, type DistrictUpdateInput } from '$lib/validation/district';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
@@ -10,6 +10,7 @@ import { INDIAN_STATES_UTS } from '$lib/data/indian-states';
 
 export const load: PageServerLoad = async (event) => {
 	await requireNationalAdmin(event);
+	const currentUser = await requireAuth(event);
 	const { id } = event.params;
 
 	const record = await db
@@ -51,7 +52,9 @@ export const load: PageServerLoad = async (event) => {
 		errors: null,
 		code: record[0].code,
 		partners: partnersList,
-		states: INDIAN_STATES_UTS
+		states: INDIAN_STATES_UTS,
+		currentUserRole: currentUser.role,
+		currentUserPartnerId: currentUser.partnerId
 	};
 };
 

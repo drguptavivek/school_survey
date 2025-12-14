@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { partners } from '$lib/server/db/schema';
-import { requireNationalAdmin } from '$lib/server/guards';
+import { requireNationalAdmin, requireAuth } from '$lib/server/guards';
 import { partnerUpdateSchema, type PartnerUpdateInput } from '$lib/validation/partner';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
@@ -9,6 +9,7 @@ import { logAudit } from '$lib/server/audit';
 
 export const load: PageServerLoad = async (event) => {
 	await requireNationalAdmin(event);
+	const currentUser = await requireAuth(event);
 	const { id } = event.params;
 
 	const record = await db
@@ -40,7 +41,9 @@ export const load: PageServerLoad = async (event) => {
 	return {
 		values,
 		errors: null,
-		code: record[0].code
+		code: record[0].code,
+		currentUserRole: currentUser.role,
+		currentUserPartnerId: currentUser.partnerId
 	};
 };
 

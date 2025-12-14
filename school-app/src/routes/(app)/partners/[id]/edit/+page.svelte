@@ -267,12 +267,12 @@ const validateFieldValue = (key: keyof PartnerUpdateInput, value: unknown) => {
 
 	<div class="mt-6">
 		<DeleteSection
-			userRole={data.user.role}
+			userRole={data.currentUserRole}
 			itemId={data.values?.id ?? ''}
 			itemName={data.values?.name ?? 'Partner'}
 			itemContext="partner"
 			itemPartnerId={undefined}
-			userPartnerId={undefined}
+			userPartnerId={data.currentUserPartnerId ?? undefined}
 			redirectTo="/partners"
 		/>
 	</div>

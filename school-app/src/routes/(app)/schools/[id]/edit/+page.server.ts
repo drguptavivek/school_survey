@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { schools, districts, partners } from '$lib/server/db/schema';
-import { requireSchoolEditAccess } from '$lib/server/guards';
+import { requireSchoolEditAccess, requireAuth } from '$lib/server/guards';
 import { schoolUpdateSchema, type SchoolUpdateInput } from '$lib/validation/school';
 import { fail, redirect, error } from '@sveltejs/kit';
 import { eq, and, ilike, ne } from 'drizzle-orm';
@@ -10,6 +10,7 @@ import { logAudit } from '$lib/server/audit';
 export const load: PageServerLoad = async (event) => {
 	const { id } = event.params;
 	await requireSchoolEditAccess(event, id);
+	const currentUser = await requireAuth(event);
 
 	// Get the school to edit
 	const school = await db
@@ -66,7 +67,9 @@ export const load: PageServerLoad = async (event) => {
 		values,
 		errors: null,
 		school: school[0],
-		districts: districtsList
+		districts: districtsList,
+		currentUserRole: currentUser.role,
+		currentUserPartnerId: currentUser.partnerId
 	};
 };
 

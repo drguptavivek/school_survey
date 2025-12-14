@@ -622,12 +622,12 @@
 
 	<div class="mt-6">
 		<DeleteSection
-			userRole={data.user.role}
+			userRole={data.currentUserRole}
 			itemId={data.values?.id ?? ''}
 			itemName={data.values?.name ?? 'School'}
 			itemContext="school"
 			itemPartnerId={data.values?.partnerId ?? undefined}
-			userPartnerId={data.user.partnerId ?? undefined}
+			userPartnerId={data.currentUserPartnerId ?? undefined}
 			redirectTo="/schools"
 		/>
 	</div>

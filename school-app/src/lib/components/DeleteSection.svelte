@@ -13,6 +13,8 @@
 
 	let isDeleting = false;
 
+	$: canDelete = canDeleteItem(userRole, itemContext, itemPartnerId, userPartnerId);
+
 	async function handleDelete() {
 		if (!canDeleteItem(userRole, itemContext, itemPartnerId, userPartnerId)) {
 			alert('You do not have permission to delete this item');
