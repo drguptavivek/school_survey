@@ -64,6 +64,9 @@ Key data relationships/attributes used for scoping:
 - Partner dropdown is visible only when selected role is `partner_manager` or `team_member`.
 - Partner is mandatory for both roles.
 - If editor is `partner_manager`, partner is locked to their own partner and cannot be changed.
+- Role assignment UI must be restricted:
+  - If editor is `partner_manager`, the only selectable role option is `team_member`.
+  - If a `partner_manager` is editing their own profile, role should be rendered read-only (no dropdown).
 
 ### 1.4 Credentials / reset credentials
 
@@ -143,6 +146,29 @@ Use this checklist any time a route/action/API is added:
    - Create/update actions should write audit logs with old/new snapshots where relevant.
 
 ---
+
+## 4) Where scoping is enforced (code map)
+
+This section links the scope rules above to the concrete places in code that enforce them.
+
+### Guards / policies
+- Auth required for app routes: `school-app/src/routes/(app)/+layout.server.ts`
+- Base auth guard: `school-app/src/lib/server/guards.ts` (`requireAuth`)
+- User access (edit/reset) with partner scoping: `school-app/src/lib/server/guards.ts` (`requireUserAccess`)
+- Role assignment policy (prevents partner_manager promotion): `school-app/src/lib/server/guards.ts` (`canAssignUserRole`)
+- School edit access with partner scoping: `school-app/src/lib/server/guards.ts` (`requireSchoolEditAccess`)
+
+### Route-level scoping (queries)
+- Users list scoping (`partnerScopeId` filter): `school-app/src/routes/(app)/users/+page.server.ts`
+- Schools list scoping (`partnerScopeId` + districts/states filters): `school-app/src/routes/(app)/schools/+page.server.ts`
+- Schools add (partner_manager district ownership enforced): `school-app/src/routes/(app)/schools/add/+page.server.ts`
+- Schools-by-district API (scoped for partner_manager/team_member): `school-app/src/routes/(app)/schools/add/schools/+server.ts`
+- Email uniqueness API (global uniqueness): `school-app/src/routes/(app)/users/check-email/+server.ts`
+
+### UI enforcement (role/partner controls)
+- Role dropdown options (server-provided): `school-app/src/lib/server/user-utils.ts` (`getAvailableRoleOptions`)
+- Users add form role options + partner locking: `school-app/src/routes/(app)/users/add/+page.server.ts`, `school-app/src/routes/(app)/users/add/+page.svelte`
+- Users edit form role options + self-role read-only for partner_manager: `school-app/src/routes/(app)/users/[id]/edit/+page.server.ts`, `school-app/src/routes/(app)/users/[id]/edit/+page.svelte`
 
 ## 4) Planned evolution (to avoid future confusion)
 
