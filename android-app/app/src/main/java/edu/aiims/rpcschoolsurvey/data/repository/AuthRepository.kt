@@ -6,6 +6,7 @@ import edu.aiims.rpcschoolsurvey.data.network.dto.LoginRequest
 import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
 import edu.aiims.rpcschoolsurvey.data.security.PinManager
 import android.provider.Settings
+import edu.aiims.rpcschoolsurvey.data.network.dto.LogoutRequest
 
 class AuthRepository(
     private val context: Context,
@@ -32,7 +33,7 @@ class AuthRepository(
                 deviceInfo = deviceInfo
             )
 
-            val response = ApiService.createPublic().login(request)
+            val response = apiService.login(request)
 
             if (response.isSuccessful) {
                 val responseData = response.body()
@@ -62,14 +63,21 @@ class AuthRepository(
 
     suspend fun logout(): Result<Unit> {
         return try {
-            // Call logout API if available
+            // Call logout API to revoke current device token
             val token = encryptionManager.getDeviceToken()
             if (token != null) {
                 try {
-                    // You can add a logout endpoint to your API
-                    // For now, just clear local token
+                    val response = apiService.logout(
+                        LogoutRequest(deviceId = deviceId)
+                    )
+                    if (!response.isSuccessful || response.body()?.success != true) {
+                        throw Exception(response.body()?.error ?: "Logout failed")
+                    }
                 } catch (e: Exception) {
-                    // Continue with cleanup even if API call fails
+                    // Still clear locally, but surface the error
+                    encryptionManager.clearDeviceToken()
+                    pinManager.clearPin()
+                    return Result.failure(e)
                 }
             }
 

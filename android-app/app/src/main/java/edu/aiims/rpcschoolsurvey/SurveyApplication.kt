@@ -5,6 +5,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import edu.aiims.rpcschoolsurvey.data.database.SurveyDatabase
 import edu.aiims.rpcschoolsurvey.data.network.ApiService
+import edu.aiims.rpcschoolsurvey.data.network.BaseUrlManager
 import edu.aiims.rpcschoolsurvey.data.repository.SurveyRepository
 import edu.aiims.rpcschoolsurvey.data.repository.AuthRepository
 import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
@@ -22,6 +23,8 @@ class SurveyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // Initialize managers that need application context
+        BaseUrlManager.init(this)
         // Initialize Koin DI
         startKoin {
             androidContext(this@SurveyApplication)

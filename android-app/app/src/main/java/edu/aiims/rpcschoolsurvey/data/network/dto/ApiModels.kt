@@ -45,6 +45,16 @@ data class VerifyResponse(
     val user: UserData?
 )
 
+data class LogoutRequest(
+    val deviceId: String
+)
+
+data class LogoutResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val error: String? = null
+)
+
 // Survey models
 data class SurveySubmissionDto(
     val id: String,

@@ -22,6 +22,9 @@ import androidx.navigation.compose.rememberNavController
 import android.provider.Settings
 import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
 import edu.aiims.rpcschoolsurvey.data.repository.AuthRepository
+import edu.aiims.rpcschoolsurvey.data.network.BaseUrlManager
+import edu.aiims.rpcschoolsurvey.data.network.ApiService
+import androidx.compose.runtime.rememberCoroutineScope
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.launch
@@ -31,10 +34,12 @@ import androidx.compose.runtime.LaunchedEffect
 @Composable
 fun AuthNavigation() {
     val navController = rememberNavController()
+    val encryptionManager = EncryptionManager.getInstance()
+    val startDestination = if (encryptionManager.getDeviceToken() != null) "dashboard" else "login"
 
     NavHost(
         navController = navController,
-        startDestination = "login"
+        startDestination = startDestination
     ) {
         composable("login") {
             LoginScreen(
@@ -42,6 +47,9 @@ fun AuthNavigation() {
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
+                },
+                onNavigateToSettings = {
+                    navController.navigate("settings")
                 }
             )
         }
@@ -49,6 +57,11 @@ fun AuthNavigation() {
             DashboardScreen(
                 onNavigateToSettings = {
                     navController.navigate("settings")
+                },
+                onNavigateToLogin = {
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -56,6 +69,11 @@ fun AuthNavigation() {
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -63,8 +81,12 @@ fun AuthNavigation() {
 }
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(
+    onLoginSuccess: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
     val context = LocalContext.current
+    val baseUrl = remember { BaseUrlManager.getBaseUrl() }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -75,7 +97,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val authRepository = remember {
         AuthRepository(
             context = context,
-            apiService = edu.aiims.rpcschoolsurvey.data.network.ApiService.createPublic(),
+            apiService = ApiService.createPublic(baseUrl),
             encryptionManager = edu.aiims.rpcschoolsurvey.data.security.EncryptionManager.getInstance(),
             pinManager = edu.aiims.rpcschoolsurvey.data.security.PinManager(context)
         )
@@ -155,6 +177,21 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(
+            onClick = onNavigateToSettings,
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Settings")
+        }
     }
 
     // Handle login coroutine
@@ -177,7 +214,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-fun DashboardScreen(onNavigateToSettings: () -> Unit) {
+fun DashboardScreen(
+    onNavigateToSettings: () -> Unit,
+    onNavigateToLogin: () -> Unit
+) {
+    val encryptionManager = EncryptionManager.getInstance()
+    val isLoggedIn = remember { mutableStateOf(encryptionManager.getDeviceToken() != null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -192,42 +235,60 @@ fun DashboardScreen(onNavigateToSettings: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Dashboard - Ready for development",
-            style = MaterialTheme.typography.bodyLarge
-        )
+        if (!isLoggedIn.value) {
+            Text(
+                text = "You are logged out. Please login to continue.",
+                style = MaterialTheme.typography.bodyLarge
+            )
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Button(
-                onClick = { /* TODO: Navigate to survey form */ }
-            ) {
-                Text("Start Survey")
+            Button(onClick = onNavigateToLogin) {
+                Text("Login")
             }
+        } else {
+            Text(
+                text = "Dashboard - Ready for development",
+                style = MaterialTheme.typography.bodyLarge
+            )
 
-            OutlinedButton(
-                onClick = onNavigateToSettings
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Settings")
+                Button(
+                    onClick = { /* TODO: Navigate to survey form */ }
+                ) {
+                    Text("Start Survey")
+                }
+
+                OutlinedButton(
+                    onClick = onNavigateToSettings
+                ) {
+                    Text("Settings")
+                }
             }
         }
     }
 }
 
 @Composable
-fun SettingsScreen(onNavigateBack: () -> Unit) {
+fun SettingsScreen(
+    onNavigateBack: () -> Unit,
+    onLogout: () -> Unit
+) {
     val context = LocalContext.current
     val encryptionManager = EncryptionManager.getInstance()
+    val scope = rememberCoroutineScope()
+    var baseUrl by remember { mutableStateOf(BaseUrlManager.getBaseUrl()) }
 
     // For now, let's use a simple instance without Koin injection
     // We'll fix the dependency injection later
-    val authRepository = remember {
+    val authRepository = remember(baseUrl) {
         AuthRepository(
             context = context,
-            apiService = edu.aiims.rpcschoolsurvey.data.network.ApiService.create(),
+            apiService = ApiService.create(baseUrl),
             encryptionManager = encryptionManager,
             pinManager = edu.aiims.rpcschoolsurvey.data.security.PinManager(context)
         )
@@ -239,14 +300,16 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
     }
 
     // Get device token from encryption manager
-    val deviceToken = remember {
-        encryptionManager.getDeviceToken() ?: "Not Set"
+    var deviceToken by remember {
+        mutableStateOf(encryptionManager.getDeviceToken() ?: "Not Set")
     }
 
     // Check authentication status
-    val isLoggedIn = remember {
-        authRepository.isLoggedIn()
+    var isLoggedIn by remember {
+        mutableStateOf(authRepository.isLoggedIn())
     }
+    var logoutError by remember { mutableStateOf<String?>(null) }
+    var isLoggingOut by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -353,21 +416,44 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
                 if (isLoggedIn) {
                     Button(
                         onClick = {
-                            // Clear device token and navigate back to login
-                            encryptionManager.clearDeviceToken()
-                            // Note: In a real app, you'd navigate to login screen here
-                            onNavigateBack()
+                            scope.launch {
+                                isLoggingOut = true
+                                logoutError = null
+                                val result = authRepository.logout()
+                                if (result.isSuccess) {
+                                    deviceToken = "Not Set"
+                                    isLoggedIn = false
+                                    onLogout()
+                                } else {
+                                    logoutError = result.exceptionOrNull()?.message ?: "Logout failed"
+                                }
+                                isLoggingOut = false
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoggingOut,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError
                         )
                     ) {
-                        Text("Logout")
+                        if (isLoggingOut) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        } else {
+                            Text("Logout")
+                        }
                     }
                 }
             }
+        }
+
+        logoutError?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -377,6 +463,8 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
+            var baseUrlInput by remember { mutableStateOf(baseUrl) }
+            var saveMessage by remember { mutableStateOf<String?>(null) }
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
@@ -388,10 +476,35 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                InfoItem(
-                    label = "Base URL",
-                    value = "http://localhost:5173/api"
+                OutlinedTextField(
+                    value = baseUrlInput,
+                    onValueChange = { baseUrlInput = it },
+                    label = { Text("API Base URL") },
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        BaseUrlManager.setBaseUrl(baseUrlInput)
+                        baseUrl = BaseUrlManager.getBaseUrl()
+                        baseUrlInput = baseUrl
+                        saveMessage = "API base URL saved"
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Save Base URL")
+                }
+
+                saveMessage?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

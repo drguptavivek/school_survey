@@ -8,6 +8,8 @@ import retrofit2.http.Path
 import edu.aiims.rpcschoolsurvey.data.network.dto.DeviceTokenDto
 import edu.aiims.rpcschoolsurvey.data.network.dto.LoginRequest
 import edu.aiims.rpcschoolsurvey.data.network.dto.LoginResponse
+import edu.aiims.rpcschoolsurvey.data.network.dto.LogoutRequest
+import edu.aiims.rpcschoolsurvey.data.network.dto.LogoutResponse
 import edu.aiims.rpcschoolsurvey.data.network.dto.RefreshRequest
 import edu.aiims.rpcschoolsurvey.data.network.dto.RefreshResponse
 import edu.aiims.rpcschoolsurvey.data.network.dto.SchoolDto
@@ -22,38 +24,41 @@ interface ApiService {
     ): Response<LoginResponse>
 
     
-    @GET("/auth/verify")
+    @GET("/api/auth/verify")
     suspend fun verifyToken(): Response<VerifyResponse>
 
-    @POST("/auth/refresh")
+    @POST("/api/auth/refresh")
     suspend fun refreshToken(@Body request: RefreshRequest): Response<RefreshResponse>
 
-    @POST("/survey/submit")
+    @POST("/api/auth/logout")
+    suspend fun logout(@Body request: LogoutRequest): Response<LogoutResponse>
+
+    @POST("/api/surveys/submit")
     suspend fun submitSurvey(@Body surveyData: SurveySubmissionDto): Response<Map<String, Any>>
 
-    @GET("/survey/status/{id}")
+    @GET("/api/survey/status/{id}")
     suspend fun getSurveyStatus(@Path("id") surveyId: String): Response<Map<String, Any>>
 
-    @GET("/schools")
+    @GET("/api/schools")
     suspend fun getSchools(): Response<List<SchoolDto>>
 
-    @GET("/device/tokens")
+    @GET("/api/device-tokens")
     suspend fun getDeviceTokens(): Response<List<DeviceTokenDto>>
 
-    @POST("/device/tokens/{tokenId}/revoke")
+    @POST("/api/device-tokens/{tokenId}/revoke")
     suspend fun revokeDeviceToken(
         @Path("tokenId") tokenId: String
     ): Response<Map<String, Any>>
 
     companion object {
         // Create authenticated API client with token interceptor
-        fun create(): ApiService {
-            return RetrofitClient.getRetrofit().create(ApiService::class.java)
+        fun create(baseUrl: String? = null): ApiService {
+            return RetrofitClient.getRetrofit(baseUrl).create(ApiService::class.java)
         }
 
         // Create public API client for login/register device
-        fun createPublic(): ApiService {
-            return RetrofitClient.getPublicRetrofit().create(ApiService::class.java)
+        fun createPublic(baseUrl: String? = null): ApiService {
+            return RetrofitClient.getPublicRetrofit(baseUrl).create(ApiService::class.java)
         }
     }
 }
