@@ -1,6 +1,8 @@
 package edu.aiims.rpcschoolsurvey.presentation.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -21,6 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.provider.Settings
 import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
+import edu.aiims.rpcschoolsurvey.data.security.PinManager
 import edu.aiims.rpcschoolsurvey.data.repository.AuthRepository
 import edu.aiims.rpcschoolsurvey.data.network.BaseUrlManager
 import edu.aiims.rpcschoolsurvey.data.network.ApiService
@@ -34,8 +37,15 @@ import androidx.compose.runtime.LaunchedEffect
 @Composable
 fun AuthNavigation() {
     val navController = rememberNavController()
+    val context = LocalContext.current
     val encryptionManager = EncryptionManager.getInstance()
-    val startDestination = if (encryptionManager.getDeviceToken() != null) "dashboard" else "login"
+    val pinManager = remember { PinManager(context) }
+    val hasToken = encryptionManager.getDeviceToken() != null
+    val startDestination = when {
+        hasToken && pinManager.isPinSet() -> "dashboard"
+        hasToken -> "pinSetup"
+        else -> "login"
+    }
 
     NavHost(
         navController = navController,
@@ -48,8 +58,27 @@ fun AuthNavigation() {
                         popUpTo("login") { inclusive = true }
                     }
                 },
+                onRequirePinSetup = {
+                    navController.navigate("pinSetup") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
                 onNavigateToSettings = {
                     navController.navigate("settings")
+                }
+            )
+        }
+        composable("pinSetup") {
+            PinSetupScreen(
+                onPinSet = {
+                    navController.navigate("dashboard") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -83,10 +112,12 @@ fun AuthNavigation() {
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onRequirePinSetup: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val baseUrl = remember { BaseUrlManager.getBaseUrl() }
+    val pinManager = remember { PinManager(context) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -200,7 +231,11 @@ fun LoginScreen(
             try {
                 val result = authRepository.login(email, password)
                 if (result.isSuccess) {
-                    onLoginSuccess()
+                    if (pinManager.isPinSet()) {
+                        onLoginSuccess()
+                    } else {
+                        onRequirePinSetup()
+                    }
                 } else {
                     errorMessage = result.exceptionOrNull()?.message ?: "Login failed"
                 }
@@ -274,6 +309,109 @@ fun DashboardScreen(
 }
 
 @Composable
+fun PinSetupScreen(
+    onPinSet: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val context = LocalContext.current
+    val pinManager = remember { PinManager(context) }
+    val encryptionManager = EncryptionManager.getInstance()
+    val scope = rememberCoroutineScope()
+    var pin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Set Your 4-digit PIN",
+            style = MaterialTheme.typography.headlineSmall
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = pin,
+            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) pin = it },
+            label = { Text("PIN") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = confirmPin,
+            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) confirmPin = it },
+            label = { Text("Confirm PIN") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation()
+        )
+
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                errorMessage = null
+                when {
+                    pin.length != 4 -> errorMessage = "PIN must be 4 digits"
+                    confirmPin != pin -> errorMessage = "PINs do not match"
+                    else -> {
+                        isSaving = true
+                        scope.launch {
+                            val result = pinManager.setupPin(pin)
+                            isSaving = false
+                            if (result.success) {
+                                onPinSet()
+                            } else {
+                                errorMessage = result.message ?: "Failed to set PIN"
+                            }
+                        }
+                    }
+                }
+            },
+            enabled = !isSaving,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+            } else {
+                Text("Save PIN")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(onClick = {
+            encryptionManager.clearDeviceToken()
+            scope.launch {
+                pinManager.clearPin()
+            }
+            onLogout()
+        }) {
+            Text("Logout instead")
+        }
+    }
+}
+
+@Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit
@@ -282,6 +420,7 @@ fun SettingsScreen(
     val encryptionManager = EncryptionManager.getInstance()
     val scope = rememberCoroutineScope()
     var baseUrl by remember { mutableStateOf(BaseUrlManager.getBaseUrl()) }
+    val pinManager = remember { PinManager(context) }
 
     // For now, let's use a simple instance without Koin injection
     // We'll fix the dependency injection later
@@ -308,13 +447,21 @@ fun SettingsScreen(
     var isLoggedIn by remember {
         mutableStateOf(authRepository.isLoggedIn())
     }
+    var isPinSet by remember { mutableStateOf(pinManager.isPinSet()) }
     var logoutError by remember { mutableStateOf<String?>(null) }
     var isLoggingOut by remember { mutableStateOf(false) }
+    var oldPin by remember { mutableStateOf("") }
+    var newPin by remember { mutableStateOf("") }
+    var confirmNewPin by remember { mutableStateOf("") }
+    var changePinMessage by remember { mutableStateOf<String?>(null) }
+    var changePinError by remember { mutableStateOf<String?>(null) }
+    var isChangingPin by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         // Top bar with back button
         Row(
@@ -336,84 +483,48 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Device Information Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
+        if (isLoggedIn) {
+            // Authentication Status Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Text(
-                    text = "Device Information",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Device ID
-                InfoItem(
-                    label = "Device ID",
-                    value = deviceId,
-                    monospace = true
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                // Device Token
-                InfoItem(
-                    label = "Device Token",
-                    value = deviceToken,
-                    monospace = true
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Authentication Status Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Authentication Status",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Login Status
-                InfoItem(
-                    label = "Login Status",
-                    value = if (isLoggedIn) "Logged In" else "Not Logged In"
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                // Token Validity
-                InfoItem(
-                    label = "Token Status",
-                    value = if (deviceToken != "Not Set") "Active" else "No Token"
-                )
-
-                if (deviceToken != "Not Set") {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    InfoItem(
-                        label = "Token Length",
-                        value = "${deviceToken.length} characters"
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Authentication Status",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Logout Button
-                if (isLoggedIn) {
+                    // Login Status
+                    InfoItem(
+                        label = "Login Status",
+                        value = if (isLoggedIn) "Logged In" else "Not Logged In"
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // Token Validity
+                    InfoItem(
+                        label = "Token Status",
+                        value = if (deviceToken != "Not Set") "Active" else "No Token"
+                    )
+
+                    if (deviceToken != "Not Set") {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        InfoItem(
+                            label = "Token Length",
+                            value = "${deviceToken.length} characters"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Logout Button
                     Button(
                         onClick = {
                             scope.launch {
@@ -423,6 +534,7 @@ fun SettingsScreen(
                                 if (result.isSuccess) {
                                     deviceToken = "Not Set"
                                     isLoggedIn = false
+                                    isPinSet = pinManager.isPinSet()
                                     onLogout()
                                 } else {
                                     logoutError = result.exceptionOrNull()?.message ?: "Logout failed"
@@ -445,18 +557,129 @@ fun SettingsScreen(
                     }
                 }
             }
-        }
 
-        logoutError?.let {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
+            logoutError?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Change PIN Card (only if a PIN exists)
+            if (isPinSet) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Change PIN",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = oldPin,
+                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) oldPin = it },
+                            label = { Text("Current PIN") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = newPin,
+                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) newPin = it },
+                            label = { Text("New PIN (4 digits)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = confirmNewPin,
+                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) confirmNewPin = it },
+                            label = { Text("Confirm New PIN") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+
+                        changePinError?.let {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        changePinMessage?.let {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                changePinError = null
+                                changePinMessage = null
+                                when {
+                                    oldPin.length != 4 -> changePinError = "Current PIN must be 4 digits"
+                                    newPin.length != 4 -> changePinError = "New PIN must be 4 digits"
+                                    newPin != confirmNewPin -> changePinError = "New PINs do not match"
+                                    else -> {
+                                        isChangingPin = true
+                                        scope.launch {
+                                            val result = pinManager.changePin(oldPin, newPin)
+                                            isChangingPin = false
+                                            if (result.success) {
+                                                changePinMessage = "PIN changed successfully"
+                                                isPinSet = true
+                                                oldPin = ""
+                                                newPin = ""
+                                                confirmNewPin = ""
+                                            } else {
+                                                changePinError = result.message ?: "Failed to change PIN"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isChangingPin
+                        ) {
+                            if (isChangingPin) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+                            } else {
+                                Text("Update PIN")
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+        
+        }
 
         // API Configuration Card
         Card(
@@ -514,6 +737,44 @@ fun SettingsScreen(
                 )
             }
         }
+
+
+        // Device Information Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Device Information",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Device ID
+                InfoItem(
+                    label = "Device ID",
+                    value = deviceId,
+                    monospace = true
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Device Token
+                InfoItem(
+                    label = "Device Token",
+                    value = deviceToken,
+                    monospace = true
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
     }
 }
 
