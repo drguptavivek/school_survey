@@ -476,6 +476,7 @@ fun PinUnlockScreen(
     val pinManager = remember { PinManager(context) }
     val encryptionManager = EncryptionManager.getInstance()
     val scope = rememberCoroutineScope()
+    val userProfile = remember { EncryptionManager.getInstance().getUserProfile(edu.aiims.rpcschoolsurvey.data.network.dto.UserData::class.java) }
     var pin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isVerifying by remember { mutableStateOf(false) }
@@ -491,6 +492,22 @@ fun PinUnlockScreen(
             text = "Enter PIN to Unlock",
             style = MaterialTheme.typography.headlineSmall
         )
+
+        userProfile?.let { user ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = user.email,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            user.partnerName?.let { partner ->
+                Text(
+                    text = partner,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -594,6 +611,7 @@ fun SettingsScreen(
         mutableStateOf(authRepository.isLoggedIn())
     }
     var isPinSet by remember { mutableStateOf(pinManager.isPinSet()) }
+    var userProfile by remember { mutableStateOf(authRepository.getUserProfile()) }
     var logoutError by remember { mutableStateOf<String?>(null) }
     var isLoggingOut by remember { mutableStateOf(false) }
     var oldPin by remember { mutableStateOf("") }
@@ -655,6 +673,15 @@ fun SettingsScreen(
                         value = if (isLoggedIn) "Logged In" else "Not Logged In"
                     )
 
+                    userProfile?.let { user ->
+                        Spacer(modifier = Modifier.height(12.dp))
+                        InfoItem(label = "User Name", value = user.name ?: "N/A")
+                        InfoItem(label = "Email", value = user.email)
+                        InfoItem(label = "Role", value = user.role)
+                        InfoItem(label = "Partner Name", value = user.partnerName ?: "N/A")
+                        InfoItem(label = "Partner ID", value = user.partnerId ?: "N/A")
+                    }
+
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                     // Token Validity
@@ -684,6 +711,7 @@ fun SettingsScreen(
                                     deviceToken = "Not Set"
                                     isLoggedIn = false
                                     isPinSet = pinManager.isPinSet()
+                                    userProfile = null
                                     InactivityTracker.clear()
                                     onLogout()
                                 } else {

@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { users, deviceTokens } from '$lib/server/db/schema';
+import { users, deviceTokens, partners } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { logAudit } from '$lib/server/audit';
 import bcrypt from 'bcryptjs';
@@ -22,6 +22,7 @@ interface LoginResponse {
         email: string;
         role: string;
         partnerId: string | null;
+        partnerName?: string | null;
         name: string;
     };
     deviceToken?: string;
@@ -112,6 +113,17 @@ export const POST = async ({ request, getClientAddress }: RequestEvent): Promise
             .set({ lastLoginAt: new Date() })
             .where(eq(users.id, user[0].id));
 
+        // Get partner name if applicable
+        let partnerName: string | null = null;
+        if (user[0].partnerId) {
+            const partner = await db
+                .select({ name: partners.name })
+                .from(partners)
+                .where(eq(partners.id, user[0].partnerId))
+                .limit(1);
+            partnerName = partner[0]?.name || null;
+        }
+
         // Generate device token (long-lived for Android app)
         const deviceToken = generateDeviceToken(user[0].id, deviceId);
         const expiresAt = new Date(Date.now() + (365 * 24 * 60 * 60 * 1000)); // 1 year
@@ -182,6 +194,7 @@ export const POST = async ({ request, getClientAddress }: RequestEvent): Promise
                 email: user[0].email,
                 role: user[0].role,
                 partnerId: user[0].partnerId,
+                partnerName,
                 name: user[0].name
             },
             deviceToken,

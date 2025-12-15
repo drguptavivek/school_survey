@@ -12,6 +12,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import com.google.gson.Gson
 class EncryptionManager private constructor() {
 
     companion object {
@@ -23,6 +24,7 @@ class EncryptionManager private constructor() {
         private const val DEVICE_TOKEN_KEY = "encrypted_device_token"
         private const val PIN_HASH_KEY = "pin_hash"
         private const val ENCRYPTION_CONTEXT_KEY = "encryption_context"
+        private const val USER_PROFILE_KEY = "user_profile"
 
         private lateinit var instance: EncryptionManager
 
@@ -101,6 +103,28 @@ class EncryptionManager private constructor() {
         encryptedSharedPreferences.edit()
             .remove(DEVICE_TOKEN_KEY)
             .apply()
+    }
+
+    // User Profile Management
+    fun storeUserProfile(userJson: String) {
+        encryptedSharedPreferences.edit()
+            .putString(USER_PROFILE_KEY, userJson)
+            .apply()
+    }
+
+    fun clearUserProfile() {
+        encryptedSharedPreferences.edit()
+            .remove(USER_PROFILE_KEY)
+            .apply()
+    }
+
+    fun <T> getUserProfile(clazz: Class<T>): T? {
+        val json = encryptedSharedPreferences.getString(USER_PROFILE_KEY, null) ?: return null
+        return try {
+            Gson().fromJson(json, clazz)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     // PIN Management

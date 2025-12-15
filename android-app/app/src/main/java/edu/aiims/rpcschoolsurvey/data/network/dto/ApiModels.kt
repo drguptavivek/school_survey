@@ -25,6 +25,9 @@ data class UserData(
     val id: String,
     val email: String,
     val role: String,
+    val name: String? = null,
+    @SerializedName(value = "partnerName", alternate = ["partner_name"])
+    val partnerName: String? = null,
     @SerializedName(value = "partnerId", alternate = ["partner_id"])
     val partnerId: String? = null
 )

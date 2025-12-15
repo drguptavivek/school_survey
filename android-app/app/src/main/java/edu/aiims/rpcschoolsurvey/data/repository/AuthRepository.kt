@@ -7,6 +7,8 @@ import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
 import edu.aiims.rpcschoolsurvey.data.security.PinManager
 import android.provider.Settings
 import edu.aiims.rpcschoolsurvey.data.network.dto.LogoutRequest
+import com.google.gson.Gson
+import edu.aiims.rpcschoolsurvey.data.network.dto.UserData
 
 class AuthRepository(
     private val context: Context,
@@ -42,6 +44,11 @@ class AuthRepository(
                 val deviceToken = responseData?.deviceToken.orEmpty()
                 if (deviceToken.isNotEmpty()) {
                     encryptionManager.storeDeviceToken(deviceToken)
+                }
+
+                // Store user profile for later use in forms
+                responseData?.user?.let { user ->
+                    encryptionManager.storeUserProfile(Gson().toJson(user))
                 }
 
                 Result.success(
@@ -83,6 +90,7 @@ class AuthRepository(
 
             // Clear local token and PIN
             encryptionManager.clearDeviceToken()
+            encryptionManager.clearUserProfile()
             pinManager.clearPin()
 
             Result.success(Unit)
@@ -113,6 +121,10 @@ class AuthRepository(
 
     fun getDeviceToken(): String? {
         return encryptionManager.getDeviceToken()
+    }
+
+    fun getUserProfile(): UserData? {
+        return encryptionManager.getUserProfile(UserData::class.java)
     }
 
     fun getDeviceId(): String = deviceId
