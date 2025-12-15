@@ -1,3 +1,10 @@
+
+cd ~/workspace/schoo_survey/collect
+
+./gradlew assembleDebug
+
+
+
 emulator -list-avds
 
 # emulator -avd Medium_Phone_API_36.0 -netdelay none -netspeed full
@@ -12,6 +19,8 @@ adb shell 'while [[ "$(getprop sys.boot_completed)" != "1" ]]; do sleep 1; done;
 adb reverse tcp:5173 tcp:5173 
 
 adb install -r ./collect_app/build/outputs/apk/debug/ODK-Collect-debug.apk
+
+manager@example.com
 
 adb logcat -t 100
 adb shell am force-stop edu.aiims.surveylauncher && sleep 1 
