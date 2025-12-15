@@ -1,0 +1,3 @@
+[submodule "collect"]
+	path = collect
+	url = https://github.com/drguptavivek/collect.git
