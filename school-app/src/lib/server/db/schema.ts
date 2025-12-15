@@ -68,7 +68,7 @@ export const users = pgTable(
 		passwordHash: varchar('password_hash', { length: 255 }).notNull(),
 		name: varchar('name', { length: 255 }).notNull(),
 		role: userRoleEnum('role').notNull(),
-		partnerId: uuid('partner_id'),
+		partnerId: uuid('partner_id').references(() => partners.id),
 		code: varchar('code', { length: 50 }).notNull().unique().default(sql`nextval('user_code_seq')`),
 		phoneNumber: varchar('phone_number', { length: 10 }),
 		dateActiveTill: date('date_active_till'),
@@ -79,7 +79,7 @@ export const users = pgTable(
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
 		lastLoginAt: timestamp('last_login_at'),
-		createdBy: uuid('created_by')
+		createdBy: uuid('created_by').references(() => users.id)
 	},
 	(table) => ({
 		emailIdx: uniqueIndex('users_email_idx').on(table.email),
@@ -94,7 +94,7 @@ export const sessions = pgTable(
 	'sessions',
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
-		userId: uuid('user_id').notNull(),
+		userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 		token: varchar('token', { length: 255 }).notNull().unique(),
 		expiresAt: timestamp('expires_at').notNull(),
 		createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -122,7 +122,7 @@ export const partners = pgTable(
 		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
-		createdBy: uuid('created_by')
+		createdBy: uuid('created_by').references(() => users.id)
 	},
 	(table) => ({
 		codeIdx: uniqueIndex('partners_code_idx').on(table.code)
@@ -136,14 +136,14 @@ export const districts = pgTable(
 		id: uuid('id').primaryKey().defaultRandom(),
 		name: varchar('name', { length: 255 }).notNull(),
 		code: varchar('code', { length: 50 }).notNull().unique().default(sql`nextval('district_code_seq')`),
-		partnerId: uuid('partner_id').notNull(),
+		partnerId: uuid('partner_id').notNull().references(() => partners.id),
 		state: varchar('state', { length: 100 }),
 		region: varchar('region', { length: 100 }),
 		isActive: boolean('is_active').default(true).notNull(),
 		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
-		createdBy: uuid('created_by')
+		createdBy: uuid('created_by').references(() => users.id)
 	},
 	(table) => ({
 		codeIdx: uniqueIndex('districts_code_idx').on(table.code),
@@ -159,8 +159,8 @@ export const schools = pgTable(
 		id: uuid('id').primaryKey().defaultRandom(),
 		name: varchar('name', { length: 255 }).notNull(),
 		code: varchar('code', { length: 100 }).notNull().unique().default(sql`nextval('school_code_seq')`),
-		districtId: uuid('district_id').notNull(),
-		partnerId: uuid('partner_id').notNull(),
+		districtId: uuid('district_id').notNull().references(() => districts.id),
+		partnerId: uuid('partner_id').notNull().references(() => partners.id),
 		address: text('address'),
 		principalName: varchar('principal_name', { length: 255 }),
 		contactPhone: varchar('contact_phone', { length: 50 }),
@@ -179,11 +179,11 @@ export const schools = pgTable(
 		isActive: boolean('is_active').default(true).notNull(),
 		hasSurveyData: boolean('has_survey_data').default(false).notNull(),
 		selectedAt: timestamp('selected_at'),
-		selectedBy: uuid('selected_by'),
+		selectedBy: uuid('selected_by').references(() => users.id),
 		deletedAt: timestamp('deleted_at'), // Soft delete timestamp
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull(),
-		uploadedBy: uuid('uploaded_by')
+		uploadedBy: uuid('uploaded_by').references(() => users.id)
 	},
 	(table) => ({
 		districtIdx: index('schools_district_id_idx').on(table.districtId),
@@ -202,9 +202,9 @@ export const surveyResponses = pgTable(
 
 		// Section A: Basic Details
 		surveyDate: date('survey_date').notNull(),
-		districtId: uuid('district_id').notNull(),
+		districtId: uuid('district_id').notNull().references(() => districts.id),
 		areaType: areaTypeEnum('area_type').notNull(),
-		schoolId: uuid('school_id').notNull(),
+		schoolId: uuid('school_id').notNull().references(() => schools.id),
 		schoolType: schoolTypeEnum('school_type').notNull(),
 		class: integer('class').notNull(),
 		section: varchar('section', { length: 10 }).notNull(),
@@ -256,12 +256,12 @@ export const surveyResponses = pgTable(
 		referredToOphthalmologist: boolean('referred_to_ophthalmologist').notNull(),
 
 		// Metadata & Audit
-		partnerId: uuid('partner_id').notNull(),
-		submittedBy: uuid('submitted_by').notNull(),
+		partnerId: uuid('partner_id').notNull().references(() => partners.id),
+		submittedBy: uuid('submitted_by').notNull().references(() => users.id),
 		submittedAt: timestamp('submitted_at').defaultNow().notNull(),
 		teamEditDeadline: timestamp('team_edit_deadline').notNull(),
 		partnerEditDeadline: timestamp('partner_edit_deadline').notNull(),
-		lastEditedBy: uuid('last_edited_by'),
+		lastEditedBy: uuid('last_edited_by').references(() => users.id),
 		lastEditedAt: timestamp('last_edited_at'),
 		createdAt: timestamp('created_at').defaultNow().notNull(),
 		updatedAt: timestamp('updated_at').defaultNow().notNull()
@@ -281,14 +281,14 @@ export const deviceTokens = pgTable(
 	'device_tokens',
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
-		userId: uuid('user_id').notNull(),
+		userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 		deviceId: varchar('device_id', { length: 255 }).notNull(),
 		token: varchar('token', { length: 500 }).notNull().unique(),
 		deviceInfo: text('device_info'),
 		expiresAt: timestamp('expires_at').notNull(),
 		isRevoked: boolean('is_revoked').default(false).notNull(),
 		revokedAt: timestamp('revoked_at'),
-		revokedBy: uuid('revoked_by'),
+		revokedBy: uuid('revoked_by').references(() => users.id),
 		lastUsed: timestamp('last_used').defaultNow().notNull(),
 		ipAddress: varchar('ip_address', { length: 45 }),
 		userAgent: text('user_agent'),
@@ -309,7 +309,7 @@ export const auditLogs = pgTable(
 	'audit_logs',
 	{
 		id: uuid('id').primaryKey().defaultRandom(),
-		userId: uuid('user_id'),
+		userId: uuid('user_id').references(() => users.id),
 		action: varchar('action', { length: 100 }).notNull(),
 		entityType: varchar('entity_type', { length: 100 }).notNull(),
 		entityId: uuid('entity_id'),
@@ -325,7 +325,7 @@ export const auditLogs = pgTable(
 );
 
 // Relations
-export const usersRelations = relations(users, ({ many, one }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
 	sessions: many(sessions),
 	deviceTokens: many(deviceTokens),
 	createdPartners: many(partners, { relationName: 'createdBy' }),

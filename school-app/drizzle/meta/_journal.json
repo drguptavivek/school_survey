@@ -50,6 +50,13 @@
       "when": 1765715247547,
       "tag": "0006_charming_lenny_balinger",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1765815510333,
+      "tag": "0007_rapid_snowbird",
+      "breakpoints": true
     }
   ]
 }
