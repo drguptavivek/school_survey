@@ -3,11 +3,12 @@ import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/server/db';
 import { surveyResponses, users, schools, districts, partners } from '$lib/server/db/schema';
 import { eq, and, desc, like, sql } from 'drizzle-orm';
-import { requireAuth } from '$lib/server/auth';
+import { requireAuth } from '$lib/server/guards';
 import { logAudit } from '$lib/server/audit';
 
-export const load: PageServerLoad = async ({ url, locals }) => {
-    const user = await requireAuth(locals);
+export const load: PageServerLoad = async (event) => {
+    const user = await requireAuth(event);
+    const { url } = event;
 
     // Parse query parameters
     const page = parseInt(url.searchParams.get('page') || '1');

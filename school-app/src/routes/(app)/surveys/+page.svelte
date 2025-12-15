@@ -224,11 +224,11 @@
                                         <div class="text-sm">
                                             {formatDate(survey.submittedAt)}
                                         </div>
-                                        {survey.submittedByUser && (
+                                        {#if survey.submittedByUser}
                                             <div class="text-xs text-muted-foreground">
                                                 by {survey.submittedByUser.name}
                                             </div>
-                                        )}
+                                        {/if}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" class={getEditStatusColor(survey.editStatus)}>
