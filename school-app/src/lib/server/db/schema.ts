@@ -288,7 +288,7 @@ export const deviceTokens = pgTable(
 		expiresAt: timestamp('expires_at').notNull(),
 		isRevoked: boolean('is_revoked').default(false).notNull(),
 		revokedAt: timestamp('revoked_at'),
-		revokedBy: uuid('revoked_by').references(() => users.id),
+		revokedBy: uuid('revoked_by'),
 		lastUsed: timestamp('last_used').defaultNow().notNull(),
 		ipAddress: varchar('ip_address', { length: 45 }),
 		userAgent: text('user_agent'),
@@ -418,10 +418,6 @@ export const surveyResponsesRelations = relations(surveyResponses, ({ one }) => 
 export const deviceTokensRelations = relations(deviceTokens, ({ one }) => ({
 	user: one(users, {
 		fields: [deviceTokens.userId],
-		references: [users.id]
-	}),
-	revokedByUser: one(users, {
-		fields: [deviceTokens.revokedBy],
 		references: [users.id]
 	})
 }));
