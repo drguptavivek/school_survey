@@ -5,33 +5,40 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
-import retrofit2.http.Header
+import edu.aiims.rpcschoolsurvey.data.network.dto.DeviceTokenDto
+import edu.aiims.rpcschoolsurvey.data.network.dto.LoginRequest
+import edu.aiims.rpcschoolsurvey.data.network.dto.LoginResponse
+import edu.aiims.rpcschoolsurvey.data.network.dto.RefreshRequest
+import edu.aiims.rpcschoolsurvey.data.network.dto.RefreshResponse
+import edu.aiims.rpcschoolsurvey.data.network.dto.SchoolDto
+import edu.aiims.rpcschoolsurvey.data.network.dto.SurveySubmissionDto
+import edu.aiims.rpcschoolsurvey.data.network.dto.VerifyResponse
 
 interface ApiService {
 
     @POST("/api/auth/login")
     suspend fun login(
-        @Body request: Map<String, Any>
-    ): Response<Map<String, Any>>
+        @Body request: LoginRequest
+    ): Response<LoginResponse>
 
     
     @GET("/auth/verify")
-    suspend fun verifyToken(): Response<Map<String, Any>>
+    suspend fun verifyToken(): Response<VerifyResponse>
 
     @POST("/auth/refresh")
-    suspend fun refreshToken(@Body request: Map<String, String>): Response<Map<String, Any>>
+    suspend fun refreshToken(@Body request: RefreshRequest): Response<RefreshResponse>
 
     @POST("/survey/submit")
-    suspend fun submitSurvey(@Body surveyData: Map<String, Any>): Response<Map<String, Any>>
+    suspend fun submitSurvey(@Body surveyData: SurveySubmissionDto): Response<Map<String, Any>>
 
     @GET("/survey/status/{id}")
     suspend fun getSurveyStatus(@Path("id") surveyId: String): Response<Map<String, Any>>
 
     @GET("/schools")
-    suspend fun getSchools(): Response<List<Map<String, Any>>>
+    suspend fun getSchools(): Response<List<SchoolDto>>
 
     @GET("/device/tokens")
-    suspend fun getDeviceTokens(): Response<List<Map<String, Any>>>
+    suspend fun getDeviceTokens(): Response<List<DeviceTokenDto>>
 
     @POST("/device/tokens/{tokenId}/revoke")
     suspend fun revokeDeviceToken(

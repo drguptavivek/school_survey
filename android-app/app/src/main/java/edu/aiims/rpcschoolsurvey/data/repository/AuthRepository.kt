@@ -2,6 +2,7 @@ package edu.aiims.rpcschoolsurvey.data.repository
 
 import android.content.Context
 import edu.aiims.rpcschoolsurvey.data.network.ApiService
+import edu.aiims.rpcschoolsurvey.data.network.dto.LoginRequest
 import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
 import edu.aiims.rpcschoolsurvey.data.security.PinManager
 import android.provider.Settings
@@ -24,26 +25,33 @@ class AuthRepository(
         return try {
             val deviceInfo = "${getDeviceName()} (App v${getAppVersion()})"
 
-            val request = mapOf(
-                "email" to email,
-                "password" to password,
-                "deviceId" to deviceId,
-                "deviceInfo" to deviceInfo
+            val request = LoginRequest(
+                email = email,
+                password = password,
+                deviceId = deviceId,
+                deviceInfo = deviceInfo
             )
 
             val response = ApiService.createPublic().login(request)
 
             if (response.isSuccessful) {
-                val responseData = response.body() ?: emptyMap<String, Any>()
+                val responseData = response.body()
 
-                // Extract and store the device token
-                val deviceToken = responseData["deviceToken"] as? String ?: ""
-
+                // Store the issued device token
+                val deviceToken = responseData?.deviceToken.orEmpty()
                 if (deviceToken.isNotEmpty()) {
                     encryptionManager.storeDeviceToken(deviceToken)
                 }
 
-                Result.success(responseData)
+                Result.success(
+                    mapOf(
+                        "deviceToken" to deviceToken,
+                        "user" to (responseData?.user ?: emptyMap<String, Any>()),
+                        "expiresAt" to (responseData?.expiresAt ?: ""),
+                        "requiresPinSetup" to (responseData?.requiresPinSetup ?: false),
+                        "message" to (responseData?.message ?: "")
+                    )
+                )
             } else {
                 Result.failure(Exception("Login failed: ${response.code()} - ${response.message()}"))
             }

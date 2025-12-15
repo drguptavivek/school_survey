@@ -1,30 +1,48 @@
 package edu.aiims.rpcschoolsurvey.data.network.dto
 
-// Simple API response wrapper
-data class ApiResponse<T>(
-    val success: Boolean,
-    val data: T? = null,
-    val message: String? = null,
-    val error: String? = null
-)
+import com.google.gson.annotations.SerializedName
 
 // Authentication models
 data class LoginRequest(
     val email: String,
-    val password: String
+    val password: String,
+    val deviceId: String? = null,
+    val deviceInfo: String? = null
 )
 
 data class LoginResponse(
-    val token: String,
-    val refreshToken: String,
-    val user: UserData
+    val success: Boolean,
+    val user: UserData,
+    @SerializedName(value = "deviceToken", alternate = ["device_token"])
+    val deviceToken: String,
+    val expiresAt: String,
+    val requiresPinSetup: Boolean = false,
+    val message: String? = null
 )
 
 data class UserData(
+    @SerializedName(value = "id", alternate = ["userId", "user_id"])
     val id: String,
     val email: String,
     val role: String,
+    @SerializedName(value = "partnerId", alternate = ["partner_id"])
     val partnerId: String? = null
+)
+
+data class RefreshRequest(
+    val deviceId: String
+)
+
+data class RefreshResponse(
+    val success: Boolean,
+    @SerializedName(value = "deviceToken", alternate = ["device_token"])
+    val deviceToken: String,
+    val expiresAt: String
+)
+
+data class VerifyResponse(
+    val valid: Boolean,
+    val user: UserData?
 )
 
 // Survey models
