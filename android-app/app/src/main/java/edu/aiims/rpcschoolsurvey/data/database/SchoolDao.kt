@@ -1,6 +1,8 @@
 package edu.aiims.rpcschoolsurvey.data.database
 
 import android.content.Context
+import android.content.SharedPreferences
+import com.google.gson.Gson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -13,9 +15,10 @@ interface SchoolDao {
     suspend fun deleteSchool(id: String)
 }
 
-// Simple implementation without Room
-class SimpleSchoolDao(
-    private val context: Context
+// Simple implementation using in-memory storage
+class LocalSchoolDao(
+    private val sharedPreferences: SharedPreferences,
+    private val gson: Gson
 ) : SchoolDao {
 
     private val schools = mutableListOf<SchoolEntity>()

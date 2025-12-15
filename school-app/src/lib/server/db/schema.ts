@@ -164,7 +164,7 @@ export const schools = pgTable(
 		address: text('address'),
 		principalName: varchar('principal_name', { length: 255 }),
 		contactPhone: varchar('contact_phone', { length: 50 }),
-		schoolType: schoolTypeEnum('school_type'), // govt, private, aided, other
+		schoolType: schoolTypeEnum('school_type'), // government, private, aided, other
 		areaType: areaTypeEnum('area_type'), // rural, urban
 		gpsLatitude: decimal('gps_latitude', { precision: 10, scale: 8 }),
 		gpsLongitude: decimal('gps_longitude', { precision: 11, scale: 8 }),

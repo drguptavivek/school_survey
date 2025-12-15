@@ -5,12 +5,16 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Header
 
 interface ApiService {
 
-    @POST("/auth/login")
-    suspend fun login(@Body request: Map<String, String>): Response<Map<String, Any>>
+    @POST("/api/auth/login")
+    suspend fun login(
+        @Body request: Map<String, Any>
+    ): Response<Map<String, Any>>
 
+    
     @GET("/auth/verify")
     suspend fun verifyToken(): Response<Map<String, Any>>
 
@@ -26,9 +30,23 @@ interface ApiService {
     @GET("/schools")
     suspend fun getSchools(): Response<List<Map<String, Any>>>
 
+    @GET("/device/tokens")
+    suspend fun getDeviceTokens(): Response<List<Map<String, Any>>>
+
+    @POST("/device/tokens/{tokenId}/revoke")
+    suspend fun revokeDeviceToken(
+        @Path("tokenId") tokenId: String
+    ): Response<Map<String, Any>>
+
     companion object {
+        // Create authenticated API client with token interceptor
         fun create(): ApiService {
             return RetrofitClient.getRetrofit().create(ApiService::class.java)
+        }
+
+        // Create public API client for login/register device
+        fun createPublic(): ApiService {
+            return RetrofitClient.getPublicRetrofit().create(ApiService::class.java)
         }
     }
 }

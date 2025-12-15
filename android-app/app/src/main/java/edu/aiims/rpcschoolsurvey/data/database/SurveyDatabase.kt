@@ -1,8 +1,11 @@
 package edu.aiims.rpcschoolsurvey.data.database
 
 import android.content.Context
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
-// Simple database interface without Room for now
+// Local database interface that persists data to SharedPreferences
 interface SurveyDatabase {
     fun surveyDao(): SurveyDao
     fun schoolDao(): SchoolDao
@@ -10,19 +13,23 @@ interface SurveyDatabase {
 
     companion object {
         fun getDatabase(context: Context): SurveyDatabase {
-            return SimpleSurveyDatabase(context)
+            return LocalSurveyDatabase(context)
         }
     }
 }
 
-// Simple implementation without Room
-class SimpleSurveyDatabase(
+// Local implementation using SharedPreferences
+class LocalSurveyDatabase(
     private val context: Context
 ) : SurveyDatabase {
 
-    override fun surveyDao(): SurveyDao = SimpleSurveyDao(context)
-    override fun schoolDao(): SchoolDao = SimpleSchoolDao(context)
-    override fun syncStatusDao(): SyncStatusDao = SimpleSyncStatusDao(context)
+    private val sharedPreferences: SharedPreferences =
+        context.getSharedPreferences("survey_database", Context.MODE_PRIVATE)
+    private val gson = Gson()
+
+    override fun surveyDao(): SurveyDao = LocalSurveyDao(sharedPreferences, gson)
+    override fun schoolDao(): SchoolDao = LocalSchoolDao(sharedPreferences, gson)
+    override fun syncStatusDao(): SyncStatusDao = LocalSyncStatusDao(sharedPreferences, gson)
 }
 
 class Converters {

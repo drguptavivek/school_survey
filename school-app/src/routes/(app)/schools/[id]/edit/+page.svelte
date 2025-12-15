@@ -239,7 +239,7 @@
 								aria-describedby={field.state.meta.errors?.length ? 'schoolType-error' : undefined}
 							>
 								<option value="">Select School Type</option>
-								<option value="govt">Government</option>
+								<option value="government">Government</option>
 								<option value="private">Private</option>
 								<option value="aided">Aided</option>
 								<option value="other">Other</option>

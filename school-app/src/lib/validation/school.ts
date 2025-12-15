@@ -43,8 +43,8 @@ const schoolBaseSchema = z.object({
 			{ message: 'Phone number must have at least 10 digits' }
 		),
 	schoolType: z
-		.enum(['govt', 'private', 'aided', 'other'])
-		.catch('govt')
+		.enum(['government', 'private', 'aided', 'other'])
+		.catch('government')
 		.optional(),
 	areaType: z
 		.enum(['rural', 'urban'])

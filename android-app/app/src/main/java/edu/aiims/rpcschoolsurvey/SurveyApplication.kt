@@ -48,7 +48,7 @@ class SurveyApplication : Application() {
         single { PinManager(get()) }
 
         // Repositories
-        single { AuthRepository(get(), get(), get()) }
+        single { AuthRepository(get(), get(), get(), get()) }
         single { SurveyRepository(get(), get(), get(), get()) }
 
         // Sync Manager
