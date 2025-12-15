@@ -9,6 +9,7 @@ import edu.aiims.rpcschoolsurvey.data.network.BaseUrlManager
 import edu.aiims.rpcschoolsurvey.data.repository.SurveyRepository
 import edu.aiims.rpcschoolsurvey.data.repository.AuthRepository
 import edu.aiims.rpcschoolsurvey.data.security.EncryptionManager
+import edu.aiims.rpcschoolsurvey.data.security.InactivityTracker
 import edu.aiims.rpcschoolsurvey.data.security.PinManager
 import edu.aiims.rpcschoolsurvey.data.sync.SyncManager
 import org.koin.android.ext.koin.androidContext
@@ -25,6 +26,7 @@ class SurveyApplication : Application() {
 
         // Initialize managers that need application context
         BaseUrlManager.init(this)
+        InactivityTracker.init(this)
         // Initialize Koin DI
         startKoin {
             androidContext(this@SurveyApplication)

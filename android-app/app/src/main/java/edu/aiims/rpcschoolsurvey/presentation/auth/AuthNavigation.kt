@@ -28,11 +28,18 @@ import edu.aiims.rpcschoolsurvey.data.repository.AuthRepository
 import edu.aiims.rpcschoolsurvey.data.network.BaseUrlManager
 import edu.aiims.rpcschoolsurvey.data.network.ApiService
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.runtime.LaunchedEffect
+import edu.aiims.rpcschoolsurvey.data.security.InactivityTracker
+import edu.aiims.rpcschoolsurvey.data.config.AppDefaults
+
+private const val PIN_MASK_CHAR = '●'
 
 @Composable
 fun AuthNavigation() {
@@ -40,11 +47,34 @@ fun AuthNavigation() {
     val context = LocalContext.current
     val encryptionManager = EncryptionManager.getInstance()
     val pinManager = remember { PinManager(context) }
+    val lifecycleOwner = context as LifecycleOwner
     val hasToken = encryptionManager.getDeviceToken() != null
     val startDestination = when {
+        hasToken && pinManager.isPinSet() && InactivityTracker.isTimedOut() -> "pinUnlock"
         hasToken && pinManager.isPinSet() -> "dashboard"
         hasToken -> "pinSetup"
         else -> "login"
+    }
+
+    // Inactivity watcher: on resume, enforce PIN if timed out
+    DisposableEffect(lifecycleOwner, hasToken) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val tokenExists = encryptionManager.getDeviceToken() != null
+                val pinSet = pinManager.isPinSet()
+                if (tokenExists && pinSet) {
+                    if (InactivityTracker.isTimedOut()) {
+                        navController.navigate("pinUnlock") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    } else {
+                        InactivityTracker.markActive()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     NavHost(
@@ -71,6 +101,22 @@ fun AuthNavigation() {
         composable("pinSetup") {
             PinSetupScreen(
                 onPinSet = {
+                    InactivityTracker.markActive()
+                    navController.navigate("dashboard") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable("pinUnlock") {
+            PinUnlockScreen(
+                onUnlocked = {
+                    InactivityTracker.markActive()
                     navController.navigate("dashboard") {
                         popUpTo(0) { inclusive = true }
                     }
@@ -232,6 +278,7 @@ fun LoginScreen(
                 val result = authRepository.login(email, password)
                 if (result.isSuccess) {
                     if (pinManager.isPinSet()) {
+                        InactivityTracker.markActive()
                         onLoginSuccess()
                     } else {
                         onRequirePinSetup()
@@ -255,6 +302,11 @@ fun DashboardScreen(
 ) {
     val encryptionManager = EncryptionManager.getInstance()
     val isLoggedIn = remember { mutableStateOf(encryptionManager.getDeviceToken() != null) }
+    LaunchedEffect(isLoggedIn.value) {
+        if (isLoggedIn.value) {
+            InactivityTracker.markActive()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -330,7 +382,7 @@ fun PinSetupScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Set Your 4-digit PIN",
+            text = "Set Your ${AppDefaults.PIN_LENGTH}-digit PIN",
             style = MaterialTheme.typography.headlineSmall
         )
 
@@ -338,22 +390,24 @@ fun PinSetupScreen(
 
         OutlinedTextField(
             value = pin,
-            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) pin = it },
+            onValueChange = { if (it.length <= AppDefaults.PIN_LENGTH && it.all { c -> c.isDigit() }) pin = it },
             label = { Text("PIN") },
             modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(PIN_MASK_CHAR)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
             value = confirmPin,
-            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) confirmPin = it },
+            onValueChange = { if (it.length <= AppDefaults.PIN_LENGTH && it.all { c -> c.isDigit() }) confirmPin = it },
             label = { Text("Confirm PIN") },
             modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(PIN_MASK_CHAR)
         )
 
         errorMessage?.let {
@@ -371,7 +425,7 @@ fun PinSetupScreen(
             onClick = {
                 errorMessage = null
                 when {
-                    pin.length != 4 -> errorMessage = "PIN must be 4 digits"
+                    pin.length != AppDefaults.PIN_LENGTH -> errorMessage = "PIN must be ${AppDefaults.PIN_LENGTH} digits"
                     confirmPin != pin -> errorMessage = "PINs do not match"
                     else -> {
                         isSaving = true
@@ -379,6 +433,7 @@ fun PinSetupScreen(
                             val result = pinManager.setupPin(pin)
                             isSaving = false
                             if (result.success) {
+                                InactivityTracker.markActive()
                                 onPinSet()
                             } else {
                                 errorMessage = result.message ?: "Failed to set PIN"
@@ -404,9 +459,100 @@ fun PinSetupScreen(
             scope.launch {
                 pinManager.clearPin()
             }
+            InactivityTracker.clear()
             onLogout()
         }) {
             Text("Logout instead")
+        }
+    }
+}
+
+@Composable
+fun PinUnlockScreen(
+    onUnlocked: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val context = LocalContext.current
+    val pinManager = remember { PinManager(context) }
+    val encryptionManager = EncryptionManager.getInstance()
+    val scope = rememberCoroutineScope()
+    var pin by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isVerifying by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Enter PIN to Unlock",
+            style = MaterialTheme.typography.headlineSmall
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = pin,
+            onValueChange = { if (it.length <= AppDefaults.PIN_LENGTH && it.all { c -> c.isDigit() }) pin = it },
+            label = { Text("PIN") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            visualTransformation = PasswordVisualTransformation(PIN_MASK_CHAR)
+        )
+
+        errorMessage?.let {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                errorMessage = null
+                if (pin.length != AppDefaults.PIN_LENGTH) {
+                    errorMessage = "PIN must be ${AppDefaults.PIN_LENGTH} digits"
+                    return@Button
+                }
+                isVerifying = true
+                scope.launch {
+                    val result = pinManager.verifyPin(pin)
+                    isVerifying = false
+                    if (result.success) {
+                        InactivityTracker.markActive()
+                        onUnlocked()
+                    } else {
+                        errorMessage = result.message ?: "Incorrect PIN"
+                    }
+                }
+            },
+            enabled = !isVerifying,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isVerifying) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp))
+            } else {
+                Text("Unlock")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(onClick = {
+            encryptionManager.clearDeviceToken()
+            scope.launch { pinManager.clearPin() }
+            InactivityTracker.clear()
+            onLogout()
+        }) {
+            Text("Logout")
         }
     }
 }
@@ -456,6 +602,9 @@ fun SettingsScreen(
     var changePinMessage by remember { mutableStateOf<String?>(null) }
     var changePinError by remember { mutableStateOf<String?>(null) }
     var isChangingPin by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) InactivityTracker.markActive()
+    }
 
     Column(
         modifier = Modifier
@@ -535,6 +684,7 @@ fun SettingsScreen(
                                     deviceToken = "Not Set"
                                     isLoggedIn = false
                                     isPinSet = pinManager.isPinSet()
+                                    InactivityTracker.clear()
                                     onLogout()
                                 } else {
                                     logoutError = result.exceptionOrNull()?.message ?: "Logout failed"
@@ -588,33 +738,36 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = oldPin,
-                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) oldPin = it },
+                            onValueChange = { if (it.length <= AppDefaults.PIN_LENGTH && it.all { c -> c.isDigit() }) oldPin = it },
                             label = { Text("Current PIN") },
                             modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            visualTransformation = PasswordVisualTransformation()
+                            visualTransformation = PasswordVisualTransformation(PIN_MASK_CHAR)
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         OutlinedTextField(
                             value = newPin,
-                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) newPin = it },
-                            label = { Text("New PIN (4 digits)") },
+                            onValueChange = { if (it.length <= AppDefaults.PIN_LENGTH && it.all { c -> c.isDigit() }) newPin = it },
+                            label = { Text("New PIN (${AppDefaults.PIN_LENGTH} digits)") },
                             modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            visualTransformation = PasswordVisualTransformation()
+                            visualTransformation = PasswordVisualTransformation(PIN_MASK_CHAR)
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         OutlinedTextField(
                             value = confirmNewPin,
-                            onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) confirmNewPin = it },
+                            onValueChange = { if (it.length <= AppDefaults.PIN_LENGTH && it.all { c -> c.isDigit() }) confirmNewPin = it },
                             label = { Text("Confirm New PIN") },
                             modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            visualTransformation = PasswordVisualTransformation()
+                            visualTransformation = PasswordVisualTransformation(PIN_MASK_CHAR)
                         )
 
                         changePinError?.let {
@@ -642,8 +795,8 @@ fun SettingsScreen(
                                 changePinError = null
                                 changePinMessage = null
                                 when {
-                                    oldPin.length != 4 -> changePinError = "Current PIN must be 4 digits"
-                                    newPin.length != 4 -> changePinError = "New PIN must be 4 digits"
+                                    oldPin.length != AppDefaults.PIN_LENGTH -> changePinError = "Current PIN must be ${AppDefaults.PIN_LENGTH} digits"
+                                    newPin.length != AppDefaults.PIN_LENGTH -> changePinError = "New PIN must be ${AppDefaults.PIN_LENGTH} digits"
                                     newPin != confirmNewPin -> changePinError = "New PINs do not match"
                                     else -> {
                                         isChangingPin = true
