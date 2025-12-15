@@ -1,9 +1,15 @@
 # RPC School Survey API Documentation
 
-**Version**: 1.2
-**Last Updated**: December 14, 2024
+**Version**: 1.3
+**Last Updated**: December 15, 2024
 **Base URL**: `http://localhost:5174/api` (Development)
 **Authentication**: Device Token (Android) / Session (Web)
+
+## Recent Updates (v1.3)
+
+- **Enhanced User Payload**: Added `partnerName` field to both Login and Verify API responses for better user identification
+- **Android Compatibility**: Android client supports both `partnerName` (camelCase) and `partner_name` (snake_case) field names
+- **Consistent User Data**: User information now consistently includes partner name across all authentication endpoints
 
 ---
 
@@ -58,6 +64,7 @@ Authenticates Android app users and issues device tokens.
     "email": "admin@example.com",
     "role": "national_admin|partner_manager|team_member|data_manager",
     "partnerId": "uuid|null",
+    "partnerName": "Partner Organization Name|null",
     "name": "User Name"
   },
   "deviceToken": "jwt_token_string",
@@ -66,6 +73,19 @@ Authenticates Android app users and issues device tokens.
   "message": "Login successful. Please set up your local PIN for offline access."
 }
 ```
+
+**Response Fields (user object)**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | User UUID |
+| email | string | User email address |
+| role | string | User role: national_admin, partner_manager, team_member, or data_manager |
+| partnerId | string | null | Partner UUID (for partner_manager and team_member roles) |
+| partnerName | string | null | Partner organization name (null for national_admin and data_manager) |
+| name | string | User's full name |
+
+**Android Client Note**: The Android app uses `partner_name` (snake_case) as an alternate field name with `@SerializedName` annotation for backward compatibility.
 
 #### Error Responses
 - `400 Bad Request`: Missing required fields or invalid email format
@@ -94,7 +114,8 @@ Authorization: Bearer <device_token>
     "id": "uuid",
     "email": "user@example.com",
     "role": "partner_manager",
-    "partnerId": "uuid"
+    "partnerId": "uuid",
+    "partnerName": "Partner Organization Name"
   }
 }
 ```

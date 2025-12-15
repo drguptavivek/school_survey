@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { deviceTokens, users } from '$lib/server/db/schema';
+import { deviceTokens, users, partners } from '$lib/server/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { logAudit } from '$lib/server/audit';
 import * as crypto from 'node:crypto';
@@ -13,6 +13,7 @@ interface VerifyResponse {
         email: string;
         role: string;
         partnerId: string | null;
+        partnerName?: string | null;
         name: string;
     };
     error?: string;
@@ -142,6 +143,17 @@ export const POST = async ({ request, getClientAddress }: RequestEvent): Promise
             })
             .where(eq(deviceTokens.id, deviceToken.id));
 
+        // Get partner name if applicable
+        let partnerName: string | null = null;
+        if (user[0].partnerId) {
+            const partner = await db
+                .select({ name: partners.name })
+                .from(partners)
+                .where(eq(partners.id, user[0].partnerId))
+                .limit(1);
+            partnerName = partner[0]?.name || null;
+        }
+
         // Token is valid, return user information
         return json({
             valid: true,
@@ -150,6 +162,7 @@ export const POST = async ({ request, getClientAddress }: RequestEvent): Promise
                 email: user[0].email,
                 role: user[0].role,
                 partnerId: user[0].partnerId,
+                partnerName,
                 name: user[0].name
             }
         } as VerifyResponse);
