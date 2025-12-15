@@ -20,6 +20,7 @@ adb reverse tcp:5173 tcp:5173
 
 adb install -r ./collect_app/build/outputs/apk/debug/ODK-Collect-debug.apk
 
+
 manager@example.com
 
 adb logcat -t 100
