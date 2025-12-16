@@ -48,32 +48,8 @@ export async function requireDeviceAuth(event: RequestEvent): Promise<DeviceToke
  */
 export async function verifyDeviceToken(token: string, event?: RequestEvent): Promise<DeviceTokenInfo | null> {
     try {
-        // Parse and verify token format
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-            if (event) {
-                await logInvalidTokenAttempt(token, event, 'invalid_token_format');
-            }
-            return null;
-        }
-
-        const [headerB64, payloadB64, signature] = parts;
-
-        // Decode payload
-        const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
-
-        // Verify signature
-        const expectedSignature = crypto
-            .createHmac('sha256', process.env.DEVICE_TOKEN_SECRET || 'default-secret')
-            .update(`${headerB64}.${payloadB64}`)
-            .digest('base64url');
-
-        if (signature !== expectedSignature) {
-            if (event) {
-                await logInvalidTokenAttempt(token, event, 'invalid_signature');
-            }
-            return null;
-        }
+        const payload = decodeAndVerifyToken(token, event);
+        if (!payload) return null;
 
         // Get token and user from database
         const result = await db.select({
@@ -159,6 +135,70 @@ export async function verifyDeviceToken(token: string, event?: RequestEvent): Pr
         }
         return null;
     }
+}
+
+/**
+ * Decode and verify token signature. Returns payload or null.
+ */
+function decodeAndVerifyToken(token: string, event?: RequestEvent): { userId: string; deviceId: string } | null {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        if (event) {
+            logInvalidTokenAttempt(token, event, 'invalid_token_format');
+        }
+        return null;
+    }
+
+    const [headerB64, payloadB64, signature] = parts;
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+
+    const expectedSignature = crypto
+        .createHmac('sha256', process.env.DEVICE_TOKEN_SECRET || 'default-secret')
+        .update(`${headerB64}.${payloadB64}`)
+        .digest('base64url');
+
+    if (signature !== expectedSignature) {
+        if (event) {
+            logInvalidTokenAttempt(token, event, 'invalid_signature');
+        }
+        return null;
+    }
+
+    return payload;
+}
+
+/**
+ * Look up a device token purely by the token string (signature-verified).
+ * Used for logout/revoke flows even if token is expired.
+ */
+export async function findDeviceTokenByRawToken(token: string): Promise<{
+    record: typeof deviceTokens.$inferSelect;
+    user: typeof users.$inferSelect;
+} | null> {
+    const payload = decodeAndVerifyToken(token);
+    if (!payload) return null;
+
+    const result = await db
+        .select({
+            deviceToken: deviceTokens,
+            user: users
+        })
+        .from(deviceTokens)
+        .innerJoin(users, eq(deviceTokens.userId, users.id))
+        .where(
+            and(
+                eq(deviceTokens.token, token),
+                eq(deviceTokens.deviceId, payload.deviceId),
+                eq(deviceTokens.userId, payload.userId)
+            )
+        )
+        .limit(1);
+
+    if (!result[0]) {
+        return null;
+    }
+
+    return { record: result[0].deviceToken, user: result[0].user };
 }
 
 /**
@@ -260,7 +300,7 @@ async function logInvalidTokenAttempt(token: string, event: RequestEvent, reason
     });
 }
 
-async function logTokenExpired(deviceToken: any, event: RequestEvent) {
+async function logTokenExpired(deviceToken: typeof deviceTokens.$inferSelect, event: RequestEvent) {
     await logAudit({
         action: 'device_token_expired',
         entityType: 'device_token',
@@ -275,7 +315,7 @@ async function logTokenExpired(deviceToken: any, event: RequestEvent) {
     });
 }
 
-async function logSystemError(err: any, event: RequestEvent) {
+async function logSystemError(err: unknown, event: RequestEvent) {
     await logAudit({
         action: 'token_verification_error',
         entityType: 'system',

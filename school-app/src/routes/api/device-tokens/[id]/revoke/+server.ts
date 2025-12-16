@@ -1,51 +1,68 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { deviceTokens } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { requireDeviceAuth, revokeDeviceToken } from '$lib/server/device-token';
+import { eq } from 'drizzle-orm';
+import { requireDeviceAuth, revokeDeviceToken, findDeviceTokenByRawToken } from '$lib/server/device-token';
 import { logAudit } from '$lib/server/audit';
+
+const isUuid = (value: string) =>
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 export const POST = async ({ params, getClientAddress, request }: RequestEvent & { params: { id: string } }): Promise<Response> => {
     try {
-        const tokenId = params.id;
+        const tokenParam = params.id;
+        const authHeaderToken = request.headers.get('authorization')?.replace('Bearer ', '') ?? undefined;
 
-        if (!tokenId) {
+        if (!tokenParam) {
             return json({
                 success: false,
                 error: 'Token ID is required'
             }, { status: 400 });
         }
 
-        // Verify device authentication
-        const deviceAuth = await requireDeviceAuth({ request, getClientAddress } as RequestEvent);
-
-        // Prevent revoking the currently used token
-        if (tokenId === deviceAuth.id) {
-            return json({
-                success: false,
-                error: 'Cannot revoke the currently used device token'
-            }, { status: 400 });
+        // Try auth; if it fails (expired token) we still attempt best-effort revoke
+        let deviceAuth: Awaited<ReturnType<typeof requireDeviceAuth>> | null = null;
+        try {
+            deviceAuth = await requireDeviceAuth({ request, getClientAddress } as RequestEvent);
+        } catch {
+            deviceAuth = null;
         }
 
-        // Check if the token belongs to the current user
-        const tokenToRevoke = await db.select()
-            .from(deviceTokens)
-            .where(and(
-                eq(deviceTokens.id, tokenId),
-                eq(deviceTokens.userId, deviceAuth.userId)
-            ))
-            .limit(1);
+        // Resolve token record by UUID or raw token (signature-verified)
+        let tokenRecord: typeof deviceTokens.$inferSelect | null = null;
+        if (isUuid(tokenParam)) {
+            const byId = await db.select().from(deviceTokens).where(eq(deviceTokens.id, tokenParam)).limit(1);
+            tokenRecord = byId[0] ?? null;
+        } else {
+            const found = await findDeviceTokenByRawToken(tokenParam);
+            tokenRecord = found?.record ?? null;
+        }
 
-        if (!tokenToRevoke[0]) {
+        if (!tokenRecord && authHeaderToken && authHeaderToken !== tokenParam) {
+            const alt = await findDeviceTokenByRawToken(authHeaderToken);
+            tokenRecord = alt?.record ?? null;
+        }
+
+        if (!tokenRecord) {
             return json({
                 success: false,
                 error: 'Device token not found'
             }, { status: 404 });
         }
 
+        // Ensure the token belongs to the same user if auth was provided
+        if (deviceAuth && deviceAuth.userId !== tokenRecord.userId) {
+            return json({
+                success: false,
+                error: 'Token does not belong to this user'
+            }, { status: 403 });
+        }
+
+        const tokenId = tokenRecord.id;
+
         // Check if token is already revoked
-        if (tokenToRevoke[0].isRevoked) {
+        if (tokenRecord.isRevoked) {
             return json({
                 success: false,
                 error: 'Device token is already revoked'
@@ -53,7 +70,8 @@ export const POST = async ({ params, getClientAddress, request }: RequestEvent &
         }
 
         // Revoke the token
-        const success = await revokeDeviceToken(tokenId, deviceAuth.userId);
+        const revokedBy = deviceAuth?.userId ?? tokenRecord.userId;
+        const success = await revokeDeviceToken(tokenId, revokedBy);
 
         if (!success) {
             return json({
@@ -67,16 +85,16 @@ export const POST = async ({ params, getClientAddress, request }: RequestEvent &
             action: 'device_token_revoked',
             entityType: 'device_token',
             entityId: tokenId,
-            userId: deviceAuth.userId,
+            userId: revokedBy,
             oldData: {
-                device_id: tokenToRevoke[0].deviceId,
-                device_info: tokenToRevoke[0].deviceInfo,
-                last_used: tokenToRevoke[0].lastUsed
+                device_id: tokenRecord.deviceId,
+                device_info: tokenRecord.deviceInfo,
+                last_used: tokenRecord.lastUsed
             },
             newData: {
                 is_revoked: true,
                 revoked_at: new Date(),
-                revoked_by: deviceAuth.userId,
+                revoked_by: revokedBy,
                 ip_address: getClientAddress(),
                 user_agent: request.headers.get('user-agent')
             }
@@ -94,7 +112,7 @@ export const POST = async ({ params, getClientAddress, request }: RequestEvent &
         await logAudit({
             action: 'device_token_revoke_error',
             entityType: 'device_token',
-            entityId: params.id,
+            entityId: isUuid(params.id) ? params.id : null,
             newData: {
                 error: err.message,
                 ipAddress: getClientAddress(),
